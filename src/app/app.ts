@@ -22,6 +22,19 @@ export class App {
   activeTab = signal<string>('dashboard');
   largeFontMode = signal<boolean>(false);
   speechAssist = signal<boolean>(false);
+
+  // ThaID System Integration States
+  showThaidModal = signal<boolean>(false);
+  thaidQrUrl = signal<string>('');
+  thaidToken = signal<string>('');
+  thaidExpiresIn = signal<number>(180);
+  thaidStatus = signal<'pending' | 'success' | 'failed'>('pending');
+  thaidProfilesList = signal<any[]>([]);
+  selectedThaidProfile = signal<any>(null);
+  thaidMode = signal<'login' | 'register' | 'verify'>('login');
+  targetMemberToVerify = signal<Member | null>(null);
+  thaidVerifiedRegisterData = signal<any | null>(null);
+  thaidActiveSessionUser = signal<any | null>(null);
   
   // RBAC Roles demonstrating permission gates
   activeRole = signal<'president' | 'treasurer' | 'secretary' | 'member'>('treasurer');
@@ -267,6 +280,10 @@ export class App {
     const formVal = this.memberForm.value;
     const existing = formVal.id ? this.api.members().find(m => m.id === formVal.id) : null;
     
+    const isVerifiedNow = !!this.thaidVerifiedRegisterData();
+    const verifiedByThaid = existing ? (existing.verifiedByThaid || false) : isVerifiedNow;
+    const thaidVerificationDate = existing ? (existing.thaidVerificationDate || '') : (isVerifiedNow ? new Date().toISOString() : '');
+
     const memberObj: Member = {
       id: formVal.id || 'm-' + Date.now(),
       tenantId: this.api.selectedTenantId(),
@@ -285,10 +302,13 @@ export class App {
       isSpecial: existing ? existing.isSpecial : false,
       specialRole: existing ? existing.specialRole : 'none',
       authorityNotes: existing ? existing.authorityNotes : '',
-      authorizedActions: existing ? existing.authorizedActions : []
+      authorizedActions: existing ? existing.authorizedActions : [],
+      verifiedByThaid,
+      thaidVerificationDate
     };
 
     await this.api.saveMember(memberObj);
+    this.thaidVerifiedRegisterData.set(null); // Reset after saving
     this.memberForm.reset({
       title: 'นาย',
       status: 'active',
@@ -818,6 +838,136 @@ export class App {
       this.aiChatInput.set(randPrompt);
       this.aiOpen.set(true);
       this.sendAiChat();
+    }
+  }
+
+  // ==========================================
+  // THAID DIGITAL ID CONTROLLER & OIDC SIMULATOR
+  // ==========================================
+
+  async openThaidModal(mode: 'login' | 'register' | 'verify', targetMember?: Member) {
+    this.thaidMode.set(mode);
+    this.targetMemberToVerify.set(targetMember || null);
+    this.showThaidModal.set(true);
+    this.thaidStatus.set('pending');
+
+    try {
+      // 1. Get Simulated Profiles
+      const profiles = await this.api.getThaidProfiles();
+      this.thaidProfilesList.set(profiles);
+      if (profiles.length > 0) {
+        this.selectedThaidProfile.set(profiles[0]);
+      }
+
+      // 2. Generate QR Code Session
+      const qrData = await this.api.generateThaidQr();
+      this.thaidQrUrl.set(qrData.qrUrl);
+      this.thaidToken.set(qrData.token);
+      this.thaidExpiresIn.set(qrData.expiresIn);
+
+      if (this.speechAssist()) {
+        const modeThai = mode === 'login' ? 'เข้าสู่ระบบบอร์ดบริหาร' : mode === 'register' ? 'ลงทะเบียนสมาชิกใหม่' : 'เชื่อมโยงข้อมูลบุคคลดิจิทัล';
+        this.speak(`กรุณาสแกนคิวอาร์โค้ด ไทไอดี บนหน้าจอเพื่อ ${modeThai} ค่ะ`);
+      }
+    } catch (err: any) {
+      alert('ล้มเหลวในการเชื่อมโยงเครือข่าย ThaID Gateway: ' + err.message);
+    }
+  }
+
+  closeThaidModal() {
+    this.showThaidModal.set(false);
+    this.thaidQrUrl.set('');
+    this.thaidToken.set('');
+  }
+
+  async executeSimulatedThaidScan() {
+    const profile = this.selectedThaidProfile();
+    const token = this.thaidToken();
+    if (!profile || !token) return;
+
+    try {
+      // Send simulated scan from mobile device to backend OIDC Session
+      await this.api.simulateThaidScan(token, profile);
+
+      // Instantly verify and fetch result
+      const session = await this.api.checkThaidSession(token);
+      if (session.status === 'success') {
+        this.thaidStatus.set('success');
+        
+        if (this.speechAssist()) {
+          this.speak(`ยืนยันตัวตนผ่านไทยไอดีสำเร็จแล้ว ยินดีต้อนรับคุณ ${profile.name} ค่ะ`);
+        }
+
+        // Process based on action mode
+        setTimeout(async () => {
+          if (this.thaidMode() === 'login') {
+            // Check if citizen already exists in member directory (ignoring dashes in idCard)
+            const cleanedProfileId = profile.idCard.replace(/-/g, '');
+            const existingMember = this.api.members().find(m => m.idCard.replace(/-/g, '') === cleanedProfileId);
+            
+            if (existingMember) {
+              // Automatically switch active role and log session
+              this.thaidActiveSessionUser.set(existingMember);
+              this.actAsSpecialMember(existingMember);
+              this.closeThaidModal();
+            } else {
+              // Offer registration instead
+              if (confirm(`ไม่พบข้อมูลสมาชิกของ คุณ ${profile.name} ในกองทุนนี้ คุณต้องการลงทะเบียนเป็นสมาชิกใหม่ด้วยข้อมูลที่เชื่อมต่อจาก ThaID หรือไม่?`)) {
+                this.thaidMode.set('register');
+                this.autofillThaidFields(profile);
+              } else {
+                this.closeThaidModal();
+              }
+            }
+          } else if (this.thaidMode() === 'register') {
+            this.autofillThaidFields(profile);
+            this.closeThaidModal();
+          } else if (this.thaidMode() === 'verify') {
+            const memberToVerify = this.targetMemberToVerify();
+            if (memberToVerify) {
+              await this.api.verifyExistingMemberWithThaid(memberToVerify.id, profile.idCard);
+              alert(`ยืนยันตัวตนดิจิทัลและเชื่อมโยงรหัส ThaID เข้ากับสมาชิก ${memberToVerify.title}${memberToVerify.name} สำเร็จเรียบร้อย!`);
+              if (this.speechAssist()) {
+                this.speak(`เชื่อมโยงสิทธิ์ไทยไอดีเข้ากับสมาชิก คุณ ${memberToVerify.name} สำเร็จเรียบร้อยแล้วค่ะ`);
+              }
+              this.closeThaidModal();
+            }
+          }
+        }, 1500);
+      }
+    } catch (err: any) {
+      alert('การประมวลผลสแกนล้มเหลว: ' + err.message);
+    }
+  }
+
+  autofillThaidFields(profile: any) {
+    this.thaidVerifiedRegisterData.set(profile);
+    
+    this.memberForm.patchValue({
+      title: profile.title,
+      name: profile.name,
+      idCard: profile.idCard.replace(/-/g, ''),
+      phone: profile.phone,
+      birthdate: profile.birthdate,
+      address: profile.address,
+      memberCode: 'M' + String(this.api.members().length + 1).padStart(3, '0'),
+      status: 'active'
+    });
+
+    this.activeTab.set('members');
+    alert(`ดึงข้อมูลบัตรประชาชนดิจิทัลของ คุณ ${profile.name} จากฐานข้อมูลมหาดไทย (ThaID) เรียบร้อยแล้ว คณะกรรมการสามารถตรวจสอบและแก้ไขเพิ่มเติมก่อนบันทึกข้อมูลสมาชิกได้`);
+    
+    if (this.speechAssist()) {
+      this.speak("ดึงข้อมูลบัตรประชาชนดิจิทัลสำเร็จแล้วค่ะ คณะกรรมการสามารถตรวจสอบข้อมูลและกดบันทึกได้ทันที");
+    }
+  }
+
+  // Quick logout of active digital session
+  logoutThaidSession() {
+    this.thaidActiveSessionUser.set(null);
+    this.activeRole.set('member'); // Reset to default member role
+    if (this.speechAssist()) {
+      this.speak("ลงชื่อออกจากระบบควบคุมดิจิทัลเสร็จสิ้นค่ะ");
     }
   }
 

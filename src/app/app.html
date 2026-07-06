@@ -173,6 +173,39 @@
         </button>
       </nav>
 
+      <!-- ThaID Active Session / Login Card -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 p-4 flex flex-col gap-2.5">
+        <div class="flex items-center gap-1.5 text-emerald-800">
+          <span class="material-icons text-lg">fingerprint</span>
+          <h2 class="font-bold text-sm">การเชื่อมต่อผ่าน ThaID</h2>
+        </div>
+        
+        @if (thaidActiveSessionUser(); as sessionUser) {
+          <div class="bg-emerald-50 rounded-lg p-2.5 border border-emerald-200 flex flex-col gap-1.5">
+            <div class="flex items-center gap-1.5">
+              <span class="material-icons text-emerald-600 text-sm">verified</span>
+              <span class="text-xs font-bold text-emerald-800 font-sans">ยืนยันตัวดิจิทัลแล้ว</span>
+            </div>
+            <p class="text-xs text-slate-800 font-bold leading-tight">{{ sessionUser.title }}{{ sessionUser.name }}</p>
+            <p class="text-[10px] text-slate-500 font-mono">รหัสสมาชิก: {{ sessionUser.memberCode }}</p>
+            <p class="text-[10px] text-slate-500 font-mono">สิทธิ์บอร์ด: {{ getRoleThaiName(sessionUser.specialRole) }}</p>
+            <button (click)="logoutThaidSession()" 
+                    class="w-full mt-1 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 font-bold py-1 px-2 rounded text-[10px] cursor-pointer flex items-center justify-center gap-1 transition">
+              <span class="material-icons text-xs">logout</span> ออกจากระบบ ThaID
+            </button>
+          </div>
+        } @else {
+          <div class="flex flex-col gap-2 text-xs text-slate-500">
+            <p class="leading-relaxed text-[11px]">ยืนยันตัวตนดิจิทัลระบบมหาดไทย ป้องกันสิทธิ์คลาดเคลื่อนและบัญชีแอบอ้าง</p>
+            <button (click)="openThaidModal('login')" 
+                    class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold py-2 px-3 rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer text-xs">
+              <span class="material-icons text-sm">qr_code_scanner</span>
+              <span>สแกน ThaID เข้าใช้งาน</span>
+            </button>
+          </div>
+        }
+      </div>
+
       <!-- Security Guard Info (RBAC Demo Status) -->
       <div class="hidden md:flex bg-slate-900 text-slate-200 rounded-xl p-4 flex-col gap-1.5 text-xs border border-slate-800">
         <p class="font-bold flex items-center gap-1 text-emerald-400">
@@ -455,6 +488,20 @@
 
                 <form [formGroup]="memberForm" (ngSubmit)="onSubmitMember()" class="flex flex-col gap-3 text-xs">
                   
+                  <!-- Register with ThaID Action -->
+                  <button type="button" (click)="openThaidModal('register')"
+                          class="w-full bg-gradient-to-r from-emerald-800 to-teal-800 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer text-xs mb-1">
+                    <span class="material-icons text-sm">fingerprint</span>
+                    <span>ดึงข้อมูลทะเบียนราษฎร์ผ่าน ThaID</span>
+                  </button>
+
+                  @if (thaidVerifiedRegisterData(); as verifiedData) {
+                    <div class="bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg p-2.5 flex items-center gap-2 mb-1 animate-pulse">
+                      <span class="material-icons text-sm text-emerald-600">verified</span>
+                      <span class="font-sans font-bold">เชื่อมต่อประชากรดิจิทัล: คุณ {{ verifiedData.name }}</span>
+                    </div>
+                  }
+
                   <div class="grid grid-cols-3 gap-2">
                     <div>
                       <span class="block text-slate-500 mb-1">รหัสสมาชิก*</span>
@@ -573,8 +620,16 @@
                             }
                           </td>
                           <td class="p-3">
-                            <p class="font-bold text-slate-900">{{ m.title }}{{ m.name }}</p>
-                            <p class="text-[10px] text-slate-400">{{ m.phone }}</p>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                              <p class="font-bold text-slate-900 leading-tight">{{ m.title }}{{ m.name }}</p>
+                              @if (m.verifiedByThaid) {
+                                <span class="bg-emerald-500/15 text-emerald-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-0.5 font-sans" title="ยืนยันตัวตนดิจิทัลผ่านเครือข่ายกระทรวงมหาดไทยแล้ว">
+                                  <span class="material-icons text-[10px] text-emerald-600">verified</span>
+                                  <span>ThaID</span>
+                                </span>
+                              }
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-0.5">{{ m.phone }}</p>
                             @if (m.isSpecial) {
                               <span class="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 px-1 py-0.5 rounded font-bold font-sans mt-0.5 inline-block">
                                 {{ getRoleThaiName(m.specialRole) }}
@@ -591,13 +646,18 @@
                             </button>
                           </td>
                           <td class="p-3 text-center flex items-center justify-center gap-1.5">
+                            @if (!m.verifiedByThaid) {
+                              <button (click)="openThaidModal('verify', m)" class="text-emerald-700 hover:text-emerald-600 cursor-pointer hover:scale-110 transition" title="ยืนยันตัวตนผ่าน ThaID">
+                                <span class="material-icons text-sm">fingerprint</span>
+                              </button>
+                            }
                             <button (click)="editMember(m)" class="text-blue-600 hover:text-blue-500 cursor-pointer" title="แก้ไขข้อมูล">
                               <span class="material-icons text-sm">edit</span>
                             </button>
                             <button (click)="generateMemberCert(m)" 
                                     [disabled]="loadingCertId === m.id"
                                     class="text-violet-600 hover:text-violet-500 cursor-pointer disabled:opacity-50" title="ออกจดหมายรับรองสัจจะโดย AI">
-                              <span class="material-icons text-sm">assignment_turned_in</span>
+                                <span class="material-icons text-sm">assignment_turned_in</span>
                             </button>
                             <button (click)="deleteMember(m.id)" class="text-red-600 hover:text-red-500 cursor-pointer" title="ลบออกจากระบบ">
                               <span class="material-icons text-sm">delete</span>
@@ -1746,6 +1806,113 @@
           </button>
         </div>
 
+      </div>
+    </div>
+  }
+
+  <!-- POPUP DIALOG 4: THAID SYSTEM INTEGRATION GATEWAY MODAL (DOPA OIDC) -->
+  @if (showThaidModal()) {
+    <div class="fixed inset-0 bg-slate-950/75 flex items-center justify-center z-50 p-4 animate-fade-in" id="thaid-gateway-modal">
+      <div class="bg-slate-900 text-slate-100 rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-800 flex flex-col md:flex-row">
+        
+        <!-- Left Column: Official ThaID QR & Auth Status -->
+        <div class="bg-gradient-to-b from-blue-950 via-slate-950 to-slate-950 p-6 md:w-1/2 flex flex-col items-center justify-between gap-4 border-r border-slate-800/80">
+          
+          <div class="text-center">
+            <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider inline-block mb-1">
+              DOPA OIDC Gateway
+            </span>
+            <h3 class="font-display font-bold text-lg text-white leading-tight">สแกนยืนยันตัวตนดิจิทัล</h3>
+            <p class="text-slate-400 text-[10px] mt-1">ระบบตรวจสอบความถูกต้องบัตรประชาชนทางกายภาพผ่านแอปพลิเคชัน ThaID</p>
+          </div>
+
+          <!-- QR Container with scanning laser effect -->
+          <div class="relative bg-white p-4 rounded-2xl border-4 border-blue-900 shadow-inner flex flex-col items-center justify-center">
+            @if (thaidQrUrl()) {
+              <img [src]="thaidQrUrl()" alt="ThaID Authentication QR" class="w-48 h-48 rounded-lg" referrerpolicy="no-referrer" />
+              <!-- Pulsing Scanning Overlay line -->
+              <div class="absolute left-4 right-4 top-4 h-0.5 bg-blue-500/80 shadow-[0_0_8px_#3b82f6] animate-bounce"></div>
+            @} @else {
+              <div class="w-48 h-48 flex items-center justify-center bg-slate-100 text-slate-400 rounded-lg">
+                <span class="material-icons animate-spin text-3xl">sync</span>
+              </div>
+            }
+          </div>
+
+          <!-- Expiration info -->
+          <div class="text-center">
+            <p class="text-[10px] text-slate-400">รหัสจะหมดอายุภายใน <span class="font-mono text-amber-400 font-bold">180</span> วินาที</p>
+            <div class="flex items-center gap-1.5 justify-center mt-2">
+              @if (thaidStatus() === 'pending') {
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                <span class="text-xs text-amber-300 font-bold font-sans">รอการสแกนใบหน้าและบัตร...</span>
+              } @else if (thaidStatus() === 'success') {
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span class="text-xs text-emerald-400 font-bold font-sans">ยืนยันรหัส ThaID เรียบร้อยแล้ว</span>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Interactive Citizen Simulation Console -->
+        <div class="p-6 md:w-1/2 flex flex-col justify-between gap-5 bg-slate-900">
+          
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="material-icons text-blue-400">touch_app</span>
+              <span class="font-bold text-white text-xs">เครื่องจำลอง ThaID (Citizen Simulator)</span>
+            </div>
+            <button (click)="closeThaidModal()" class="text-slate-400 hover:text-white cursor-pointer">
+              <span class="material-icons text-sm">close</span>
+            </button>
+          </div>
+
+          <!-- Simulated Citizen selection -->
+          <div class="flex flex-col gap-2.5">
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              * เนื่องจากระบบทำงานในระดับความปลอดภัยเครือข่ายจำลอง โปรดเลือกผู้ถือบัตรประชาชนจำลองเพื่อสแกน:
+            </p>
+
+            <div class="flex flex-col gap-1.5">
+              @for (profile of thaidProfilesList(); track profile.idCard) {
+                <label [class.bg-blue-950/50]="selectedThaidProfile()?.idCard === profile.idCard"
+                       [class.border-blue-500]="selectedThaidProfile()?.idCard === profile.idCard"
+                       [class.border-slate-800]="selectedThaidProfile()?.idCard !== profile.idCard"
+                       class="flex items-start gap-2.5 p-2 rounded-xl border cursor-pointer hover:bg-slate-800/50 transition">
+                  <input type="radio" name="simulatedProfile" [value]="profile"
+                         [checked]="selectedThaidProfile()?.idCard === profile.idCard"
+                         (change)="selectedThaidProfile.set(profile)"
+                         class="mt-1 focus:ring-blue-500 text-blue-600 bg-slate-700 border-slate-600">
+                  <div class="text-left">
+                    <p class="font-bold text-xs text-slate-200">{{ profile.title }}{{ profile.name }}</p>
+                    <p class="text-[9px] text-slate-400 font-mono mt-0.5">บัตรประชาชน: {{ profile.idCard }}</p>
+                    @if (profile.specialRole) {
+                      <span class="text-[8px] bg-blue-900/40 text-blue-300 font-bold px-1 py-0.5 rounded border border-blue-800 inline-block mt-0.5 font-sans">
+                        คณะกรรมการ: {{ getRoleThaiName(profile.specialRole) }}
+                      </span>
+                    }
+                  </div>
+                </label>
+              }
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex flex-col gap-2">
+            <button (click)="executeSimulatedThaidScan()" 
+                    [disabled]="thaidStatus() === 'success'"
+                    class="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-40 disabled:pointer-events-none text-xs">
+              <span class="material-icons text-sm">qr_code_scanner</span>
+              <span>กดส่งข้อมูลยืนยันตัวตน (Simulate Scan)</span>
+            </button>
+            
+            <button (click)="closeThaidModal()" 
+                    class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 rounded-xl text-xs transition cursor-pointer">
+              ยกเลิกและปิดหน้าต่าง
+            </button>
+          </div>
+
+        </div>
       </div>
     </div>
   }

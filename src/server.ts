@@ -295,6 +295,142 @@ app.post('/api/backup/restore', async (req, res) => {
   }
 });
 
+// ==========================================
+// THAID DIGITAL ID SYSTEM INTEGRATION (DOPA)
+// ==========================================
+
+// Active simulated ThaID verification sessions
+const thaidSessions = new Map<string, {
+  status: 'pending' | 'success' | 'failed';
+  profile?: {
+    idCard: string;
+    title: string;
+    name: string;
+    birthdate: string;
+    phone: string;
+    address: string;
+    specialRole?: string;
+  };
+}>();
+
+// Official simulated citizens returned by ThaID digital ID gateway
+const thaidProfiles = [
+  {
+    idCard: '1-1002-00342-99-1',
+    title: 'นาย',
+    name: 'สุนทร มีสุข',
+    birthdate: '1985-05-12',
+    phone: '081-345-6789',
+    address: '123 หมู่ 4 ต.ในเมือง อ.เมือง จ.ขอนแก่น 40000',
+    specialRole: 'treasurer'
+  },
+  {
+    idCard: '3-4001-02034-11-2',
+    title: 'นางสาว',
+    name: 'สมจิต แสนสบาย',
+    birthdate: '1972-11-20',
+    phone: '089-765-4321',
+    address: '56/1 หมู่ 2 ต.หมากแข้ง อ.เมือง จ.อุดรธานี 41000',
+    specialRole: 'auditor'
+  },
+  {
+    idCard: '3-5099-00123-45-6',
+    title: 'นาง',
+    name: 'วิภา รักดี',
+    birthdate: '1965-08-04',
+    phone: '085-111-2222',
+    address: '99 หมู่ 1 ต.บ้านเชียง อ.หนองหาน จ.อุดรธานี 41130',
+    specialRole: 'president'
+  },
+  {
+    idCard: '3410100222334', // Matches existing member Somsek (M001) in DB to test login/linking!
+    title: 'นาย',
+    name: 'สมศักดิ์ รักดี',
+    birthdate: '1961-05-12',
+    phone: '081-234-5678',
+    address: '12 หมู่ 3 บ้านแสนสุข ต.หนองหลัก อ.ไชยวาน จ.อุดรธานี',
+    specialRole: 'committee'
+  }
+];
+
+// Get Simulated ThaID Profiles
+app.get('/api/thaid/profiles', (req, res) => {
+  res.json(thaidProfiles);
+});
+
+// Generate Mock ThaID Auth QR
+app.post('/api/thaid/qr', (req, res) => {
+  const token = 'thaid-sess-' + Math.random().toString(36).substring(2, 11);
+  thaidSessions.set(token, { status: 'pending' });
+  res.json({
+    token,
+    qrUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://thaid.go.th/oidc/auth?session=${token}`,
+    expiresIn: 180
+  });
+});
+
+// Simulate citizen phone scanning QR & sending callback
+app.post('/api/thaid/simulate-scan', async (req, res) => {
+  const { token, profile } = req.body;
+  if (!thaidSessions.has(token)) {
+    res.status(404).json({ error: 'ไม่พบเซสชันการลงทะเบียนหรือหมดเวลาแล้ว' });
+    return;
+  }
+
+  thaidSessions.set(token, {
+    status: 'success',
+    profile
+  });
+
+  res.json({ success: true, message: 'ส่งข้อมูลการยืนยันตัวตนสำเร็จ' });
+});
+
+// Poll session status
+app.get('/api/thaid/session/:token', (req, res) => {
+  const session = thaidSessions.get(req.params.token);
+  if (!session) {
+    res.status(404).json({ error: 'เซสชันหมดอายุ' });
+    return;
+  }
+  res.json(session);
+});
+
+// Verify/Link Existing Member with ThaID
+app.post('/api/tenants/:tenantId/members/:memberId/verify-thaid', async (req, res) => {
+  try {
+    const { tenantId, memberId } = req.params;
+    const { idCard } = req.body;
+    
+    // Find member
+    const members = await dbStore.getMembers(tenantId);
+    const member = members.find(m => m.id === memberId);
+    
+    if (!member) {
+      res.status(404).json({ error: 'ไม่พบข้อมูลสมาชิก' });
+      return;
+    }
+
+    // Set ThaID Verification attributes
+    member.verifiedByThaid = true;
+    member.thaidVerificationDate = new Date().toISOString();
+    
+    await dbStore.saveMember(member);
+
+    await dbStore.saveAuditLog({
+      id: 'al-' + Date.now(),
+      tenantId,
+      username: 'ThaID Gateway',
+      action: 'THAID_VERIFICATION_SUCCESS',
+      details: `ยืนยันตัวตนดิจิทัลสำเร็จผ่าน ThaID (DOPA OIDC Gateway) สำหรับ ${member.title}${member.name} (${member.memberCode}) เลขบัตร: ${idCard}`,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({ success: true, member });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // AI Assistant Endpoint powered by Gemini API
 app.post('/api/ai', async (req, res) => {
   const { action, prompt, context } = req.body;

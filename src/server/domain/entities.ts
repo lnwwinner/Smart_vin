@@ -48,6 +48,8 @@ export interface Member extends IAuditable {
   specialRole?: 'president' | 'treasurer' | 'secretary' | 'auditor' | 'committee' | 'none';
   authorityNotes?: string;
   authorizedActions?: string[];
+  verifiedByThaid?: boolean;
+  thaidVerificationDate?: string;
 }
 
 export interface Transaction {

@@ -30,6 +30,8 @@ export interface Member {
   specialRole?: 'president' | 'treasurer' | 'secretary' | 'auditor' | 'committee' | 'none';
   authorityNotes?: string;
   authorizedActions?: string[];
+  verifiedByThaid?: boolean;
+  thaidVerificationDate?: string;
 }
 
 export interface Transaction {
@@ -487,5 +489,49 @@ export class ApiService {
       console.error(err);
       return `❌ เกิดข้อผิดพลาดทางเทคนิคในการเรียก AI: ${err.message}`;
     }
+  }
+
+  // ==========================================
+  // THAID INTEGRATION SERVICES
+  // ==========================================
+
+  async getThaidProfiles(): Promise<any[]> {
+    const res = await fetch('/api/thaid/profiles');
+    if (!res.ok) throw new Error('ไม่สามารถเชื่อมต่อรายชื่อจำลองของระบบ ThaID ได้');
+    return res.json();
+  }
+
+  async generateThaidQr(): Promise<{ token: string, qrUrl: string, expiresIn: number }> {
+    const res = await fetch('/api/thaid/qr', { method: 'POST' });
+    if (!res.ok) throw new Error('ไม่สามารถสร้างเซสชัน ThaID QR ได้');
+    return res.json();
+  }
+
+  async simulateThaidScan(token: string, profile: any): Promise<any> {
+    const res = await fetch('/api/thaid/simulate-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, profile })
+    });
+    if (!res.ok) throw new Error('ล้มเหลวในการส่งผลการสแกนจำลอง');
+    return res.json();
+  }
+
+  async checkThaidSession(token: string): Promise<{ status: 'pending' | 'success' | 'failed', profile?: any }> {
+    const res = await fetch(`/api/thaid/session/${token}`);
+    if (!res.ok) throw new Error('ล้มเหลวในการดึงสถานะเซสชัน');
+    return res.json();
+  }
+
+  async verifyExistingMemberWithThaid(memberId: string, idCard: string): Promise<any> {
+    const res = await fetch(`/api/tenants/${this.selectedTenantId()}/members/${memberId}/verify-thaid`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idCard })
+    });
+    if (!res.ok) throw new Error('ล้มเหลวในการอัปเดตสถานะการตรวจสอบ ThaID');
+    const data = await res.json();
+    await this.loadTenantData(this.selectedTenantId());
+    return data;
   }
 }
