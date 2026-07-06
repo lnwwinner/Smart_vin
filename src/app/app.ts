@@ -35,6 +35,12 @@ export class App {
     return this.api.members().find(m => m.id === qrId) || null;
   });
 
+  // Special members management sub-tab & state
+  memberSubTab = signal<'all' | 'special'>('all');
+  specialMembers = computed(() => {
+    return this.api.members().filter(m => m.isSpecial);
+  });
+
   // Multi-Fund Modal State
   showNewFundModal = signal<boolean>(false);
 
@@ -56,6 +62,7 @@ export class App {
 
   // Form Groups
   memberForm!: FormGroup;
+  specialMemberForm!: FormGroup;
   transactionForm!: FormGroup;
   loanForm!: FormGroup;
   repaymentForm!: FormGroup;
@@ -139,6 +146,16 @@ export class App {
       address: ['', Validators.required],
       joinDate: [new Date().toISOString().substring(0, 10)],
       status: ['active', Validators.required]
+    });
+
+    this.specialMemberForm = this.fb.group({
+      memberId: ['', Validators.required],
+      specialRole: ['committee', Validators.required],
+      authorityNotes: [''],
+      approveLoans: [false],
+      approveWelfare: [false],
+      manageSettings: [false],
+      viewAuditLogs: [false]
     });
 
     this.transactionForm = this.fb.group({
@@ -248,6 +265,7 @@ export class App {
   async onSubmitMember() {
     if (this.memberForm.invalid) return;
     const formVal = this.memberForm.value;
+    const existing = formVal.id ? this.api.members().find(m => m.id === formVal.id) : null;
     
     const memberObj: Member = {
       id: formVal.id || 'm-' + Date.now(),
@@ -261,9 +279,13 @@ export class App {
       address: formVal.address,
       joinDate: formVal.joinDate,
       status: formVal.status,
-      depositBalance: formVal.id ? (this.api.members().find(m => m.id === formVal.id)?.depositBalance || 0) : 0,
-      shareCount: formVal.id ? (this.api.members().find(m => m.id === formVal.id)?.shareCount || 0) : 0,
-      loanCount: formVal.id ? (this.api.members().find(m => m.id === formVal.id)?.loanCount || 0) : 0
+      depositBalance: existing ? (existing.depositBalance || 0) : 0,
+      shareCount: existing ? (existing.shareCount || 0) : 0,
+      loanCount: existing ? (existing.loanCount || 0) : 0,
+      isSpecial: existing ? existing.isSpecial : false,
+      specialRole: existing ? existing.specialRole : 'none',
+      authorityNotes: existing ? existing.authorityNotes : '',
+      authorizedActions: existing ? existing.authorizedActions : []
     };
 
     await this.api.saveMember(memberObj);
@@ -305,6 +327,95 @@ export class App {
       await this.api.deleteMember(id);
       if (this.speechAssist()) this.speak("ลบรายชื่อสมาชิกออกจากระบบ เรียบร้อยค่ะ");
     }
+  }
+
+  // Save Special Member / Appoint Committee
+  async onAppointSpecialMember() {
+    if (this.specialMemberForm.invalid) return;
+    const formVal = this.specialMemberForm.value;
+    const m = this.api.members().find(member => member.id === formVal.memberId);
+    if (!m) return;
+
+    const authorizedActions: string[] = [];
+    if (formVal.approveLoans) authorizedActions.push('approve_loans');
+    if (formVal.approveWelfare) authorizedActions.push('approve_welfare');
+    if (formVal.manageSettings) authorizedActions.push('manage_settings');
+    if (formVal.viewAuditLogs) authorizedActions.push('view_audit_logs');
+
+    const updatedMember: Member = {
+      ...m,
+      isSpecial: true,
+      specialRole: formVal.specialRole,
+      authorityNotes: formVal.authorityNotes || '',
+      authorizedActions
+    };
+
+    await this.api.saveMember(updatedMember);
+    
+    const roleNameMap: Record<string, string> = {
+      president: 'ประธานกองทุน',
+      treasurer: 'เหรัญญิกกองทุน',
+      secretary: 'เลขานุการ',
+      auditor: 'ผู้ตรวจสอบกองทุน',
+      committee: 'กรรมการทั่วไป'
+    };
+    
+    if (this.speechAssist()) {
+      this.speak(`แต่งตั้งคุณ ${m.name} เป็น ${roleNameMap[formVal.specialRole]} เรียบร้อยค่ะ`);
+    }
+
+    this.specialMemberForm.reset({
+      specialRole: 'committee',
+      approveLoans: false,
+      approveWelfare: false,
+      manageSettings: false,
+      viewAuditLogs: false
+    });
+  }
+
+  // Revoke Special Member authority
+  async onRevokeSpecialMember(m: Member) {
+    if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการเพิกถอนอำนาจการจัดการของ ${m.title}${m.name}?`)) return;
+    
+    const updatedMember: Member = {
+      ...m,
+      isSpecial: false,
+      specialRole: 'none',
+      authorityNotes: '',
+      authorizedActions: []
+    };
+
+    await this.api.saveMember(updatedMember);
+    if (this.speechAssist()) this.speak(`เพิกถอนสิทธิ์อำนาจการจัดการของ คุณ ${m.name} เรียบร้อยค่ะ`);
+  }
+
+  // Quick select/act as Special Member
+  actAsSpecialMember(m: Member) {
+    let roleToSet: 'president' | 'treasurer' | 'secretary' | 'member' = 'member';
+    if (m.specialRole === 'president') roleToSet = 'president';
+    else if (m.specialRole === 'treasurer') roleToSet = 'treasurer';
+    else if (m.specialRole === 'secretary') roleToSet = 'secretary';
+    else roleToSet = 'treasurer'; // Default to treasurer for general committee with management authority
+
+    this.activeRole.set(roleToSet);
+    alert(`สลับบทบาทการควบคุมระบบไปยัง: ${m.title}${m.name} (${m.specialRole === 'president' ? 'ประธาน' : m.specialRole === 'treasurer' ? 'เหรัญญิก' : 'กรรมการ'}) แล้ว`);
+    if (this.speechAssist()) {
+      this.speak(`สลับบทบาทไปยังผู้จัดการ คุณ ${m.name} แล้วค่ะ`);
+    }
+  }
+
+  // Get Thai name for role
+  getRoleThaiName(role?: string): string {
+    if (!role) return 'สมาชิกทั่วไป';
+    const mapping: Record<string, string> = {
+      president: '👑 ประธานกองทุน',
+      treasurer: '💰 เหรัญญิกกองทุน',
+      secretary: '📝 เลขานุการ',
+      auditor: '🔍 ผู้ตรวจสอบกองทุน',
+      committee: '👥 กรรมการทั่วไป',
+      none: 'สมาชิกทั่วไป'
+    };
+    return mapping[role] || 'สมาชิกทั่วไป';
   }
 
   // Submit Savings/Share transaction

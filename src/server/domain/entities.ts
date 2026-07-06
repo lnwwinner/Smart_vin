@@ -44,6 +44,10 @@ export interface Member extends IAuditable {
   depositBalance: number;
   shareCount: number;
   loanCount: number;
+  isSpecial?: boolean;
+  specialRole?: 'president' | 'treasurer' | 'secretary' | 'auditor' | 'committee' | 'none';
+  authorityNotes?: string;
+  authorizedActions?: string[];
 }
 
 export interface Transaction {

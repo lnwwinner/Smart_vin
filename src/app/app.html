@@ -421,169 +421,380 @@
 
         <!-- TAB 2: MEMBERS MANAGEMENT -->
         @if (activeTab() === 'members') {
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            
-            <!-- Add New Member Form -->
-            <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col gap-4">
-              <div class="flex items-center gap-1.5 text-slate-900 border-b border-slate-100 pb-2">
-                <span class="material-icons text-emerald-600">person_add</span>
-                <h3 class="font-bold">เพิ่ม / แก้ไข ทะเบียนประวัติสมาชิก</h3>
-              </div>
-
-              <form [formGroup]="memberForm" (ngSubmit)="onSubmitMember()" class="flex flex-col gap-3 text-xs">
-                
-                <div class="grid grid-cols-3 gap-2">
-                  <div>
-                    <span class="block text-slate-500 mb-1">รหัสสมาชิก*</span>
-                    <input type="text" formControlName="memberCode" 
-                           class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono font-bold focus:bg-white focus:outline-emerald-600">
-                  </div>
-                  <div class="col-span-2">
-                    <span class="block text-slate-500 mb-1">คำนำหน้า*</span>
-                    <select formControlName="title" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600">
-                      <option value="นาย">นาย</option>
-                      <option value="นาง">นาง</option>
-                      <option value="นางสาว">นางสาว</option>
-                      <option value="ดร.">ดร.</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <span class="block text-slate-500 mb-1">ชื่อ-นามสกุลจริง*</span>
-                  <input type="text" formControlName="name" placeholder="ระบุชื่อและนามสกุล"
-                         class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-bold focus:bg-white focus:outline-emerald-600">
-                </div>
-
-                <div>
-                  <span class="block text-slate-500 mb-1">เลขบัตรประจำตัวประชาชน (13 หลัก)*</span>
-                  <input type="text" formControlName="idCard" placeholder="ระบุ 13 หลัก"
-                         class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono focus:bg-white focus:outline-emerald-600">
-                </div>
-
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <span class="block text-slate-500 mb-1">เบอร์โทรศัพท์ติดต่อ*</span>
-                    <input type="text" formControlName="phone" placeholder="08x-xxxxxxx"
-                           class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600">
-                  </div>
-                  <div>
-                    <span class="block text-slate-500 mb-1">วัน/เดือน/ปีเกิด*</span>
-                    <input type="date" formControlName="birthdate"
-                           class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:bg-white focus:outline-emerald-600">
-                  </div>
-                </div>
-
-                <div>
-                  <span class="block text-slate-500 mb-1">ที่อยู่ตามทะเบียนบ้าน/ปัจจุบัน*</span>
-                  <textarea formControlName="address" rows="2" placeholder="บ้านเลขที่ หมู่ที่ ตำบล อำเภอ จังหวัด"
-                            class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600"></textarea>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <span class="block text-slate-500 mb-1">วันที่เข้าร่วมกองทุน</span>
-                    <input type="date" formControlName="joinDate"
-                           class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:bg-white focus:outline-emerald-600">
-                  </div>
-                  <div>
-                    <span class="block text-slate-500 mb-1">สถานะภาพ</span>
-                    <select formControlName="status" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600">
-                      <option value="active">ปกติ (Active)</option>
-                      <option value="inactive">ระงับ (Inactive)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div class="flex gap-2 mt-2">
-                  <button type="submit" [disabled]="memberForm.invalid" 
-                          class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 rounded-xl transition duration-300 cursor-pointer disabled:opacity-50">
-                    <span class="material-icons text-xs align-middle mr-1">save</span>
-                    บันทึกข้อมูลสมาชิก
-                  </button>
-                  <button type="button" (click)="resetMemberForm()"
-                          class="bg-slate-100 text-slate-700 hover:bg-slate-200 px-3 py-2 rounded-xl font-bold transition cursor-pointer">
-                    ล้างฟอร์ม
-                  </button>
-                </div>
-
-              </form>
-            </div>
-
-            <!-- Members List & QR Code Registry -->
-            <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col gap-3">
-              <div class="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-2">
-                <div class="flex items-center gap-1.5 text-slate-900">
-                  <span class="material-icons text-emerald-600">group</span>
-                  <h3 class="font-bold">บัญชีรายชื่อสมาชิกกองทุนทั้งหมด</h3>
-                </div>
-                <!-- Member search -->
-                <div class="relative w-full md:w-64">
-                  <span class="material-icons absolute left-2 top-2 text-slate-400 text-sm">search</span>
-                  <input type="text" [ngModel]="memberSearchQuery()" (ngModelChange)="memberSearchQuery.set($event)"
-                         placeholder="ค้นหารายชื่อ, รหัส, เบอร์โทร..."
-                         class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2 py-1 text-xs focus:bg-white focus:outline-emerald-600 font-medium">
-                </div>
-              </div>
-
-              <!-- List of Members -->
-              <div class="overflow-x-auto">
-                <table class="w-full text-xs text-left">
-                  <thead class="bg-slate-50 text-slate-600 font-mono uppercase border-b border-slate-100">
-                    <tr>
-                      <th class="p-3">รหัสสมาชิก</th>
-                      <th class="p-3">ชื่อ-นามสกุล</th>
-                      <th class="p-3">เลขบัตรประชาชน</th>
-                      <th class="p-3">ยอดออมสัจจะ</th>
-                      <th class="p-3">หุ้นสะสม</th>
-                      <th class="p-3 text-center">QR สมาชิก</th>
-                      <th class="p-3 text-center">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-100">
-                    @for (m of filteredMembers(); track m.id) {
-                      <tr class="hover:bg-slate-50/50">
-                        <td class="p-3 font-mono font-bold text-slate-600">{{ m.memberCode }}</td>
-                        <td class="p-3">
-                          <p class="font-bold text-slate-900">{{ m.title }}{{ m.name }}</p>
-                          <p class="text-[10px] text-slate-400">{{ m.phone }}</p>
-                        </td>
-                        <td class="p-3 font-mono text-slate-500">{{ m.idCard }}</td>
-                        <td class="p-3 font-mono font-bold text-emerald-700">{{ m.depositBalance | number:'1.2-2' }}</td>
-                        <td class="p-3 font-mono font-bold text-slate-700">{{ m.shareCount }} หุ้น</td>
-                        <td class="p-3 text-center">
-                          <button (click)="selectedMemberIdForQr.set(m.id)" 
-                                  class="text-teal-700 hover:text-teal-500 hover:scale-110 transition cursor-pointer">
-                            <span class="material-icons text-sm">qr_code_2</span>
-                          </button>
-                        </td>
-                        <td class="p-3 text-center flex items-center justify-center gap-1.5">
-                          <button (click)="editMember(m)" class="text-blue-600 hover:text-blue-500 cursor-pointer" title="แก้ไขข้อมูล">
-                            <span class="material-icons text-sm">edit</span>
-                          </button>
-                          <button (click)="generateMemberCert(m)" 
-                                  [disabled]="loadingCertId === m.id"
-                                  class="text-violet-600 hover:text-violet-500 cursor-pointer disabled:opacity-50" title="ออกจดหมายรับรองสัจจะโดย AI">
-                            <span class="material-icons text-sm">assignment_turned_in</span>
-                          </button>
-                          <button (click)="deleteMember(m.id)" class="text-red-600 hover:text-red-500 cursor-pointer" title="ลบออกจากระบบ">
-                            <span class="material-icons text-sm">delete</span>
-                          </button>
-                        </td>
-                      </tr>
-                    } @empty {
-                      <tr>
-                        <td colspan="7" class="p-8 text-center text-slate-400">ไม่พบบันทึกสมาชิกร่วมทางออมอัจฉริยะ</td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-
-            </div>
-
+          
+          <!-- Tab Bar inside Members Tab -->
+          <div class="flex items-center gap-2 border-b border-slate-200 pb-3 mb-4 w-full" id="members-subtabs-nav">
+            <button (click)="memberSubTab.set('all')"
+                    [class.border-emerald-600]="memberSubTab() === 'all'"
+                    [class.text-emerald-700]="memberSubTab() === 'all'"
+                    [class.font-bold]="memberSubTab() === 'all'"
+                    class="border-b-2 border-transparent px-4 py-2 text-sm text-slate-500 hover:text-slate-800 transition cursor-pointer flex items-center gap-1.5">
+              <span class="material-icons text-sm">group</span>
+              <span>ทะเบียนสมาชิกทั้งหมด</span>
+            </button>
+            <button (click)="memberSubTab.set('special')"
+                    [class.border-emerald-600]="memberSubTab() === 'special'"
+                    [class.text-emerald-700]="memberSubTab() === 'special'"
+                    [class.font-bold]="memberSubTab() === 'special'"
+                    class="border-b-2 border-transparent px-4 py-2 text-sm text-slate-500 hover:text-slate-800 transition cursor-pointer flex items-center gap-1.5">
+              <span class="material-icons text-sm">verified_user</span>
+              <span>สมาชิกพิเศษ & อำนาจการจัดการ (คณะกรรมการ)</span>
+              <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-300 animate-pulse">ใหม่</span>
+            </button>
           </div>
+
+          @if (memberSubTab() === 'all') {
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              
+              <!-- Add New Member Form -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col gap-4">
+                <div class="flex items-center gap-1.5 text-slate-900 border-b border-slate-100 pb-2">
+                  <span class="material-icons text-emerald-600">person_add</span>
+                  <h3 class="font-bold">เพิ่ม / แก้ไข ทะเบียนประวัติสมาชิก</h3>
+                </div>
+
+                <form [formGroup]="memberForm" (ngSubmit)="onSubmitMember()" class="flex flex-col gap-3 text-xs">
+                  
+                  <div class="grid grid-cols-3 gap-2">
+                    <div>
+                      <span class="block text-slate-500 mb-1">รหัสสมาชิก*</span>
+                      <input type="text" formControlName="memberCode" 
+                             class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono font-bold focus:bg-white focus:outline-emerald-600">
+                    </div>
+                    <div class="col-span-2">
+                      <span class="block text-slate-500 mb-1">คำนำหน้า*</span>
+                      <select formControlName="title" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600">
+                        <option value="นาย">นาย</option>
+                        <option value="นาง">นาง</option>
+                        <option value="นางสาว">นางสาว</option>
+                        <option value="ดร.">ดร.</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span class="block text-slate-500 mb-1">ชื่อ-นามสกุลจริง*</span>
+                    <input type="text" formControlName="name" placeholder="ระบุชื่อและนามสกุล"
+                           class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-bold focus:bg-white focus:outline-emerald-600">
+                  </div>
+
+                  <div>
+                    <span class="block text-slate-500 mb-1">เลขบัตรประจำตัวประชาชน (13 หลัก)*</span>
+                    <input type="text" formControlName="idCard" placeholder="ระบุ 13 หลัก"
+                           class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono focus:bg-white focus:outline-emerald-600">
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <span class="block text-slate-500 mb-1">เบอร์โทรศัพท์ติดต่อ*</span>
+                      <input type="text" formControlName="phone" placeholder="08x-xxxxxxx"
+                             class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600">
+                    </div>
+                    <div>
+                      <span class="block text-slate-500 mb-1">วัน/เดือน/ปีเกิด*</span>
+                      <input type="date" formControlName="birthdate"
+                             class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:bg-white focus:outline-emerald-600">
+                    </div>
+                  </div>
+
+                  <div>
+                    <span class="block text-slate-500 mb-1">ที่อยู่ตามทะเบียนบ้าน/ปัจจุบัน*</span>
+                    <textarea formControlName="address" rows="2" placeholder="บ้านเลขที่ หมู่ที่ ตำบล อำเภอ จังหวัด"
+                              class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600"></textarea>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <span class="block text-slate-500 mb-1">วันที่เข้าร่วมกองทุน</span>
+                      <input type="date" formControlName="joinDate"
+                             class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:bg-white focus:outline-emerald-600">
+                    </div>
+                    <div>
+                      <span class="block text-slate-500 mb-1">สถานะภาพ</span>
+                      <select formControlName="status" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600">
+                        <option value="active">ปกติ (Active)</option>
+                        <option value="inactive">ระงับ (Inactive)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="flex gap-2 mt-2">
+                    <button type="submit" [disabled]="memberForm.invalid" 
+                            class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 rounded-xl transition duration-300 cursor-pointer disabled:opacity-50">
+                      <span class="material-icons text-xs align-middle mr-1">save</span>
+                      บันทึกข้อมูลสมาชิก
+                    </button>
+                    <button type="button" (click)="resetMemberForm()"
+                            class="bg-slate-100 text-slate-700 hover:bg-slate-200 px-3 py-2 rounded-xl font-bold transition cursor-pointer">
+                      ล้างฟอร์ม
+                    </button>
+                  </div>
+
+                </form>
+              </div>
+
+              <!-- Members List & QR Code Registry -->
+              <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col gap-3">
+                <div class="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-2">
+                  <div class="flex items-center gap-1.5 text-slate-900">
+                    <span class="material-icons text-emerald-600">group</span>
+                    <h3 class="font-bold">บัญชีรายชื่อสมาชิกกองทุนทั้งหมด</h3>
+                  </div>
+                  <!-- Member search -->
+                  <div class="relative w-full md:w-64">
+                    <span class="material-icons absolute left-2 top-2 text-slate-400 text-sm">search</span>
+                    <input type="text" [ngModel]="memberSearchQuery()" (ngModelChange)="memberSearchQuery.set($event)"
+                           placeholder="ค้นหารายชื่อ, รหัส, เบอร์โทร..."
+                           class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2 py-1 text-xs focus:bg-white focus:outline-emerald-600 font-medium">
+                  </div>
+                </div>
+
+                <!-- List of Members -->
+                <div class="overflow-x-auto">
+                  <table class="w-full text-xs text-left">
+                    <thead class="bg-slate-50 text-slate-600 font-mono uppercase border-b border-slate-100">
+                      <tr>
+                        <th class="p-3">รหัสสมาชิก</th>
+                        <th class="p-3">ชื่อ-นามสกุล</th>
+                        <th class="p-3">เลขบัตรประชาชน</th>
+                        <th class="p-3">ยอดออมสัจจะ</th>
+                        <th class="p-3">หุ้นสะสม</th>
+                        <th class="p-3 text-center">QR สมาชิก</th>
+                        <th class="p-3 text-center">จัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                      @for (m of filteredMembers(); track m.id) {
+                        <tr class="hover:bg-slate-50/50">
+                          <td class="p-3 font-mono font-bold text-slate-600 flex items-center gap-1">
+                            {{ m.memberCode }}
+                            @if (m.isSpecial) {
+                              <span class="text-amber-500 material-icons text-[11px]" title="สมาชิกพิเศษที่มีอำนาจจัดการ">verified_user</span>
+                            }
+                          </td>
+                          <td class="p-3">
+                            <p class="font-bold text-slate-900">{{ m.title }}{{ m.name }}</p>
+                            <p class="text-[10px] text-slate-400">{{ m.phone }}</p>
+                            @if (m.isSpecial) {
+                              <span class="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 px-1 py-0.5 rounded font-bold font-sans mt-0.5 inline-block">
+                                {{ getRoleThaiName(m.specialRole) }}
+                              </span>
+                            }
+                          </td>
+                          <td class="p-3 font-mono text-slate-500">{{ m.idCard }}</td>
+                          <td class="p-3 font-mono font-bold text-emerald-700">{{ m.depositBalance | number:'1.2-2' }}</td>
+                          <td class="p-3 font-mono font-bold text-slate-700">{{ m.shareCount }} หุ้น</td>
+                          <td class="p-3 text-center">
+                            <button (click)="selectedMemberIdForQr.set(m.id)" 
+                                    class="text-teal-700 hover:text-teal-500 hover:scale-110 transition cursor-pointer">
+                              <span class="material-icons text-sm">qr_code_2</span>
+                            </button>
+                          </td>
+                          <td class="p-3 text-center flex items-center justify-center gap-1.5">
+                            <button (click)="editMember(m)" class="text-blue-600 hover:text-blue-500 cursor-pointer" title="แก้ไขข้อมูล">
+                              <span class="material-icons text-sm">edit</span>
+                            </button>
+                            <button (click)="generateMemberCert(m)" 
+                                    [disabled]="loadingCertId === m.id"
+                                    class="text-violet-600 hover:text-violet-500 cursor-pointer disabled:opacity-50" title="ออกจดหมายรับรองสัจจะโดย AI">
+                              <span class="material-icons text-sm">assignment_turned_in</span>
+                            </button>
+                            <button (click)="deleteMember(m.id)" class="text-red-600 hover:text-red-500 cursor-pointer" title="ลบออกจากระบบ">
+                              <span class="material-icons text-sm">delete</span>
+                            </button>
+                          </td>
+                        </tr>
+                      } @empty {
+                        <tr>
+                          <td colspan="7" class="p-8 text-center text-slate-400">ไม่พบบันทึกสมาชิกร่วมทางออมอัจฉริยะ</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+
+            </div>
+          }
+
+          @if (memberSubTab() === 'special') {
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              
+              <!-- Appoint Special Member Form -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col gap-4">
+                <div class="flex items-center gap-1.5 text-slate-900 border-b border-slate-100 pb-2">
+                  <span class="material-icons text-amber-500">assignment_ind</span>
+                  <h3 class="font-bold">แต่งตั้งคณะกรรมการและสมาชิกพิเศษ</h3>
+                </div>
+
+                <form [formGroup]="specialMemberForm" (ngSubmit)="onAppointSpecialMember()" class="flex flex-col gap-3 text-xs">
+                  
+                  <div>
+                    <span class="block text-slate-500 mb-1">เลือกสมาชิกหมู่บ้าน*</span>
+                    <select formControlName="memberId" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-bold focus:bg-white focus:outline-emerald-600 text-slate-800">
+                      <option value="">-- เลือกสมาชิกร่วมออมสัจจะ --</option>
+                      @for (member of api.members(); track member.id) {
+                        <option [value]="member.id">[{{ member.memberCode }}] {{ member.title }}{{ member.name }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  <div>
+                    <span class="block text-slate-500 mb-1">ตำแหน่งทางปกครอง/ตำแหน่งกองทุน*</span>
+                    <select formControlName="specialRole" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-bold focus:bg-white focus:outline-emerald-600">
+                      <option value="president">ประธานกองทุนสัจจะ (President)</option>
+                      <option value="treasurer">เหรัญญิกกองทุน (Treasurer)</option>
+                      <option value="secretary">เลขานุการกองทุน (Secretary)</option>
+                      <option value="auditor">ผู้ตรวจสอบกองทุนอิสระ (Auditor)</option>
+                      <option value="committee">กรรมการกองทุนทั่วไป (Committee)</option>
+                    </select>
+                  </div>
+
+                  <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex flex-col gap-2">
+                    <span class="block font-bold text-slate-700 mb-1">ขอบเขตอำนาจการจัดการ (Permissions)</span>
+                    
+                    <label class="flex items-start gap-2 text-[11px] text-slate-600 cursor-pointer hover:text-slate-800 py-0.5">
+                      <input type="checkbox" formControlName="approveLoans" class="rounded text-emerald-600 mt-0.5">
+                      <span>สิทธิ์อนุมัติสัญญากู้ยืมและปล่อยกู้วงเงินชุมชน (approve_loans)</span>
+                    </label>
+
+                    <label class="flex items-start gap-2 text-[11px] text-slate-600 cursor-pointer hover:text-slate-800 py-0.5">
+                      <input type="checkbox" formControlName="approveWelfare" class="rounded text-emerald-600 mt-0.5">
+                      <span>สิทธิ์อนุมัติคำขอเบิกจ่ายและฌาปนกิจ (approve_welfare)</span>
+                    </label>
+
+                    <label class="flex items-start gap-2 text-[11px] text-slate-600 cursor-pointer hover:text-slate-800 py-0.5">
+                      <input type="checkbox" formControlName="manageSettings" class="rounded text-emerald-600 mt-0.5">
+                      <span>สิทธิ์แก้ไขนโยบาย/สัจจะหุ้น/ระเบียบข้อบังคับ (manage_settings)</span>
+                    </label>
+
+                    <label class="flex items-start gap-2 text-[11px] text-slate-600 cursor-pointer hover:text-slate-800 py-0.5">
+                      <input type="checkbox" formControlName="viewAuditLogs" class="rounded text-emerald-600 mt-0.5">
+                      <span>สิทธิ์สืบค้นประวัติ Audit Log และตรวจสอบความปลอดภัย (view_audit_logs)</span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <span class="block text-slate-500 mb-1">บันทึกมอบอำนาจ / มติแต่งตั้ง</span>
+                    <textarea formControlName="authorityNotes" rows="3" placeholder="ระบุเลขที่วาระการประชุม หรือคำอธิบายการแต่งตั้งคณะทำงาน..."
+                              class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600"></textarea>
+                  </div>
+
+                  <button type="submit" [disabled]="specialMemberForm.invalid" 
+                          class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold py-2.5 rounded-xl transition duration-300 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1">
+                    <span class="material-icons text-sm">workspace_premium</span>
+                    บันทึกแต่งตั้งสิทธิ์สมาชิกพิเศษ
+                  </button>
+
+                </form>
+              </div>
+
+              <!-- Special Members List -->
+              <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col gap-3">
+                <div class="flex items-center gap-1.5 text-slate-900 border-b border-slate-100 pb-2">
+                  <span class="material-icons text-amber-500">verified_user</span>
+                  <h3 class="font-bold">คณะกรรมการที่ได้รับสิทธิ์อำนาจปกครองกองทุน</h3>
+                </div>
+
+                <div class="overflow-x-auto">
+                  <table class="w-full text-xs text-left">
+                    <thead class="bg-slate-50 text-slate-600 font-mono uppercase border-b border-slate-100">
+                      <tr>
+                        <th class="p-3">ข้อมูลคณะทำงาน</th>
+                        <th class="p-3">บทบาทพิเศษ</th>
+                        <th class="p-3">สิทธิ์การดำเนินงาน</th>
+                        <th class="p-3">บันทึกมติที่แต่งตั้ง</th>
+                        <th class="p-3 text-center">สวมสิทธิ์ / จัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                      @for (m of specialMembers(); track m.id) {
+                        <tr class="hover:bg-amber-50/20">
+                          <td class="p-3">
+                            <div class="flex items-center gap-2">
+                              <div class="w-8 h-8 rounded-full bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center font-bold font-sans">
+                                {{ m.name.substring(0, 1) }}
+                              </div>
+                              <div>
+                                <p class="font-bold text-slate-900">{{ m.title }}{{ m.name }}</p>
+                                <p class="text-[10px] text-slate-400 font-mono">{{ m.memberCode }} • {{ m.phone }}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td class="p-3">
+                            <span class="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-full border border-amber-200 font-sans text-[10px] inline-block shadow-sm">
+                              {{ getRoleThaiName(m.specialRole) }}
+                            </span>
+                          </td>
+                          <td class="p-3">
+                            <div class="flex flex-wrap gap-1 max-w-[200px]">
+                              @for (act of m.authorizedActions || []; track act) {
+                                <span class="bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[9px] px-1.5 py-0.5 rounded">
+                                  {{ act.replace('_', ' ') }}
+                                </span>
+                              } @empty {
+                                <span class="text-slate-400 italic">ไม่มีสิทธิ์อนุมัติในระบบ</span>
+                              }
+                            </div>
+                          </td>
+                          <td class="p-3">
+                            <p class="text-slate-600 max-w-[150px] truncate" [title]="m.authorityNotes || '-'">
+                              {{ m.authorityNotes || 'ระบุวาระการแต่งตั้งปกติ' }}
+                            </p>
+                          </td>
+                          <td class="p-3 text-center flex items-center justify-center gap-2">
+                            <!-- Act As button -->
+                            <button (click)="actAsSpecialMember(m)" 
+                                    class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 rounded px-2 py-1 text-[10px] font-bold transition flex items-center gap-0.5 cursor-pointer"
+                                    title="สลับบทบาทมาสวมสิทธิ์การทำงานเป็นคนนี้">
+                              <span class="material-icons text-xs">login</span>
+                              <span>สวมสิทธิ์</span>
+                            </button>
+                            <!-- Print Appointment Certificate via AI -->
+                            <button (click)="generateMemberCert(m)"
+                                    [disabled]="loadingCertId === m.id"
+                                    class="bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-300 rounded px-2 py-1 text-[10px] font-bold transition flex items-center gap-0.5 cursor-pointer"
+                                    title="ร่างตราตั้งหนังสืออนุมัติแต่งตั้งโดย AI">
+                              <span class="material-icons text-xs">assignment_turned_in</span>
+                              <span>ใบแต่งตั้ง</span>
+                            </button>
+                            <!-- Revoke Button -->
+                            <button (click)="onRevokeSpecialMember(m)" 
+                                    class="text-red-600 hover:text-red-500 cursor-pointer" 
+                                    title="เพิกถอนสิทธิ์อำนาจหน้าที่">
+                              <span class="material-icons text-sm">gavel</span>
+                            </button>
+                          </td>
+                        </tr>
+                      } @empty {
+                        <tr>
+                          <td colspan="5" class="p-12 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                            <span class="material-icons text-4xl text-slate-300 block mb-2">workspace_premium</span>
+                            ยังไม่มีการแต่งตั้งสมาชิกพิเศษหรือกรรมการปกครองกองทุนในหมู่บ้านนี้ 
+                            <p class="text-[11px] text-slate-400 mt-1">ท่านสามารถคัดเลือกและแต่งตั้งสมาชิกปกติผ่านแบบฟอร์มด้านซ้ายเพื่อเป็นคณะทำงานร่วมกัน</p>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="bg-amber-50 rounded-xl border border-amber-200 p-4 text-xs text-amber-900 mt-4 flex items-start gap-2.5">
+                  <span class="material-icons text-amber-700">gavel</span>
+                  <div>
+                    <p class="font-bold mb-0.5">ระเบียบสิทธิ์การแต่งตั้งสมาชิกพิเศษอัจฉริยะ (Smart Governance)</p>
+                    <p class="text-amber-800 leading-normal">
+                      ระบบสนับสนุนโครงสร้างธรรมาภิบาลและการตรวจสอบสิทธิ์อัจฉริยะ การแต่งตั้งสมาชิกปกติเป็นคณะทำงานในหมู่บ้านจะช่วยให้กรรมการมีสิทธิ์และภาระหน้าที่ตามข้อระเบียบที่มอบหมายได้อย่างถูกต้อง ตรวจสอบย้อนหลังผ่าน Audit Log ได้จริง
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
         }
+      }
 
         <!-- TAB 3: DEPOSITS & SHARES LEDGER -->
         @if (activeTab() === 'savings') {
