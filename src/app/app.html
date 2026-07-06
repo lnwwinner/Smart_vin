@@ -171,6 +171,15 @@
           <span class="material-icons">settings</span>
           <span>ตั้งกฎ / กู้คืน / ประวัติ</span>
         </button>
+
+        <button (click)="activeTab.set('audit_logs')" 
+                [class.bg-emerald-50]="activeTab() === 'audit_logs'"
+                [class.text-emerald-700]="activeTab() === 'audit_logs'"
+                [class.font-bold]="activeTab() === 'audit_logs'"
+                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+          <span class="material-icons text-rose-500">policy</span>
+          <span class="font-semibold text-rose-700">ประเมินความเสี่ยง & ตรวจสอบ</span>
+        </button>
       </nav>
 
       <!-- ThaID Active Session / Login Card -->
@@ -1503,6 +1512,385 @@
                 </table>
               </div>
 
+            </div>
+
+          </div>
+        }
+
+        <!-- AUDIT LOGS & COMPLIANCE ASSESSMENT TAB -->
+        @if (activeTab() === 'audit_logs') {
+          <div class="flex flex-col gap-6 animate-fade-in" id="audit-logs-tab">
+            
+            <!-- Tab Header Card -->
+            <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-6 border border-slate-700 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-2">
+                  <span class="material-icons text-rose-500 text-2xl">policy</span>
+                  <h2 class="text-xl font-bold font-sans tracking-tight">ระบบตรวจสอบความโปร่งใสและวิเคราะห์ความเสี่ยงอัจฉริยะ</h2>
+                </div>
+                <p class="text-xs text-slate-300">วิเคราะห์ตรวจสอบพฤติกรรมการทุจริต, ป้องกันหนี้เสียจากการค้ำประกันไขว้, และติดตามพฤติกรรมเจ้าหน้าที่อย่างโปร่งใส</p>
+              </div>
+              
+              <button (click)="runAiAuditScan()"
+                      [disabled]="aiLoading()"
+                      class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold py-2.5 px-5 rounded-xl text-xs transition-all duration-300 shadow-md shadow-amber-500/10 cursor-pointer flex items-center gap-2 border border-amber-400/20 disabled:opacity-50">
+                <span class="material-icons text-sm animate-pulse">psychology</span>
+                <span>ให้ AI ช่วยประเมินผลและสรุปรายงานเชิงลึก</span>
+              </button>
+            </div>
+
+            <!-- Dashboard Stats Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- Stat 1: Total Audit Items -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div class="flex flex-col gap-1">
+                  <span class="text-slate-500 text-xs">จำนวนบันทึกในระบบทั้งหมด</span>
+                  <span class="text-2xl font-bold text-slate-900 font-mono">{{ api.auditLogs().length }}</span>
+                  <span class="text-[10px] text-emerald-600 flex items-center gap-1 font-sans">
+                    <span class="material-icons text-xs">arrow_upward</span> อัปเดตแบบเรียลไทม์
+                  </span>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 border border-slate-100">
+                  <span class="material-icons">list_alt</span>
+                </div>
+              </div>
+
+              <!-- Stat 2: Active Risks/Anomalies -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div class="flex flex-col gap-1">
+                  <span class="text-slate-500 text-xs">ความเสี่ยงหรือความผิดปกติค้างคา</span>
+                  <span class="text-2xl font-bold font-mono"
+                        [class.text-rose-600]="detectedAnomalies().length > 0"
+                        [class.text-slate-900]="detectedAnomalies().length === 0">
+                    {{ detectedAnomalies().length }}
+                  </span>
+                  <span class="text-[10px] flex items-center gap-1 font-sans"
+                        [class.text-rose-500]="detectedAnomalies().length > 0"
+                        [class.text-emerald-600]="detectedAnomalies().length === 0">
+                    <span class="material-icons text-xs">
+                      {{ detectedAnomalies().length > 0 ? 'report' : 'check_circle' }}
+                    </span>
+                    {{ detectedAnomalies().length > 0 ? 'ควรตรวจสอบเร่งด่วน' : 'สถานะกองทุนปกติ 100%' }}
+                  </span>
+                </div>
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center border transition duration-300"
+                     [class.bg-rose-50]="detectedAnomalies().length > 0"
+                     [class.text-rose-600]="detectedAnomalies().length > 0"
+                     [class.border-rose-100]="detectedAnomalies().length > 0"
+                     [class.bg-slate-50]="detectedAnomalies().length === 0"
+                     [class.text-slate-600]="detectedAnomalies().length === 0"
+                     [class.border-slate-100]="detectedAnomalies().length === 0">
+                  <span class="material-icons">troubleshoot</span>
+                </div>
+              </div>
+
+              <!-- Stat 3: Capital Inflow / Outflow Stress Index -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div class="flex flex-col gap-1">
+                  <span class="text-slate-500 text-xs">สัดส่วนเงินหมุนเวียน (รับ/จ่าย)</span>
+                  <span class="text-2xl font-bold text-slate-900 font-mono">
+                    {{ inflowOutflowSummary().inflowPercent }}% / {{ inflowOutflowSummary().outflowPercent }}%
+                  </span>
+                  <span class="text-[10px] text-indigo-600 flex items-center gap-1 font-sans">
+                    <span class="material-icons text-xs">swap_horiz</span> ยอดรับ: {{ inflowOutflowSummary().inflow.toLocaleString() }} บ.
+                  </span>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 border border-slate-100">
+                  <span class="material-icons">account_balance_wallet</span>
+                </div>
+              </div>
+
+              <!-- Stat 4: Digital Identity Compliance -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
+                <div class="flex flex-col gap-1">
+                  <span class="text-slate-500 text-xs">สัดส่วนยืนยันตัวตนดิจิทัล (ThaID)</span>
+                  <span class="text-2xl font-bold text-slate-900 font-mono">
+                    {{ getThaidVerificationPercentage() }}%
+                  </span>
+                  <span class="text-[10px] text-emerald-600 flex items-center gap-1 font-sans">
+                    <span class="material-icons text-xs">verified</span> {{ getThaidVerifiedCount() }} จาก {{ api.members().length }} คน
+                  </span>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 border border-slate-100">
+                  <span class="material-icons text-emerald-600">fingerprint</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Risk & Mismanagement Analysis Panel -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm flex flex-col gap-4">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                  <span class="material-icons text-rose-600">gavel</span>
+                  <h3 class="font-bold text-slate-900 font-sans text-base">ระบบตรวจจับสิ่งผิดปกติทางกฎระเบียบ & ความเสี่ยงภายใน (Mismanagement Detector)</h3>
+                </div>
+                <span class="bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-full text-[10px] flex items-center gap-1">
+                  <span class="material-icons text-xs animate-pulse">crisis_alert</span>
+                  พบทั้งหมด {{ detectedAnomalies().length }} ประเด็นสุ่มเสี่ยง
+                </span>
+              </div>
+
+              @if (detectedAnomalies().length > 0) {
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  @for (anom of detectedAnomalies(); track anom.id) {
+                    <div class="rounded-xl border p-4 flex flex-col gap-2.5 transition duration-300 bg-white shadow-xs hover:shadow-md"
+                         [class.border-rose-200]="anom.type === 'danger'"
+                         [class.bg-rose-50/10]="anom.type === 'danger'"
+                         [class.border-amber-200]="anom.type === 'warning'"
+                         [class.bg-amber-50/10]="anom.type === 'warning'"
+                         [class.border-blue-200]="anom.type === 'info'"
+                         [class.bg-blue-50/10]="anom.type === 'info'">
+                      
+                      <!-- Card Header -->
+                      <div class="flex items-center gap-2">
+                        <span class="material-icons text-lg"
+                              [class.text-rose-600]="anom.type === 'danger'"
+                              [class.text-amber-500]="anom.type === 'warning'"
+                              [class.text-blue-500]="anom.type === 'info'">
+                          {{ anom.type === 'danger' ? 'report' : anom.type === 'warning' ? 'warning' : 'info' }}
+                        </span>
+                        <h4 class="font-bold text-sm text-slate-900 leading-tight">{{ anom.title }}</h4>
+                      </div>
+
+                      <p class="text-xs text-slate-600 leading-relaxed font-sans">{{ anom.description }}</p>
+
+                      <!-- Risk Relevance Detail -->
+                      <div class="bg-slate-50 rounded-lg p-2.5 border border-slate-100 flex flex-col gap-1">
+                        <span class="text-[10px] font-bold text-slate-500 font-mono">ดัชนีชี้วัดความเสี่ยงภายใน (RISK RELEVANCE)</span>
+                        <p class="text-[11px] text-slate-700 font-sans leading-snug">{{ anom.relevance }}</p>
+                      </div>
+
+                      <!-- Affected Members/Entities -->
+                      <div class="flex flex-wrap gap-1.5 items-center mt-1">
+                        <span class="text-[10px] text-slate-500 font-bold font-mono mr-1">บัญชี/สัญญาที่เกี่ยวข้อง:</span>
+                        @for (ent of anom.affectedEntities; track ent) {
+                          <span class="bg-white border text-slate-800 font-mono text-[10px] font-bold px-2 py-0.5 rounded-md shadow-2xs"
+                                [class.border-rose-100]="anom.type === 'danger'"
+                                [class.border-amber-100]="anom.type === 'warning'"
+                                [class.border-slate-200]="anom.type === 'info'">
+                            {{ ent }}
+                          </span>
+                        }
+                      </div>
+
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="bg-emerald-50/30 border border-emerald-150 rounded-xl p-8 text-center flex flex-col items-center justify-center gap-3">
+                  <div class="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner">
+                    <span class="material-icons text-3xl">verified</span>
+                  </div>
+                  <div class="flex flex-col gap-1 max-w-md">
+                    <h4 class="font-bold text-emerald-900 text-sm">ยินดีด้วย! บัญชีกองทุนสัจจะของท่านโปร่งใส 100%</h4>
+                    <p class="text-xs text-emerald-700 leading-relaxed font-sans">
+                      ระบบตรวจจับพฤติกรรมสุ่มเสี่ยงไม่พบวงจรค้ำประกันแฝง ไม่พบบัญชีความเสี่ยงสูงที่ยังไม่ยืนยันตัวตนดิจิทัล และระบบเงินทุนหมุนเวียนมีความตึงเครียดในเกณฑ์ปลอดภัยระดับสูง คณะกรรมการปฏิบัติหน้าที่อย่างชอบธรรม
+                    </p>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Visualization Charts & Analytical Layout -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              
+              <!-- Column 1: Financial Trend Chart (SVG) -->
+              <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div class="flex flex-col">
+                    <div class="flex items-center gap-1.5 text-slate-950">
+                      <span class="material-icons text-indigo-600">bar_chart</span>
+                      <h3 class="font-bold text-sm">กราฟประวัติกระแสธุรกรรมเคลื่อนไหวรายวัน (Cash Flow Trends)</h3>
+                    </div>
+                    <span class="text-[10px] text-slate-500">แสดงผลรวมเงินฝาก ถอน และยอดปล่อยกู้/ชำระงวดของกองทุนในช่วงวันล่าสุดที่มีการเคลื่อนไหว</span>
+                  </div>
+                </div>
+
+                @if (transactionTimelineData().length > 0) {
+                  <!-- SVG Rendering -->
+                  <div class="relative w-full overflow-x-auto select-none mt-2">
+                    <svg [attr.viewBox]="'0 0 ' + transactionChartData().width + ' ' + transactionChartData().height" 
+                         class="w-full min-w-[500px] h-[220px]">
+                      
+                      <!-- Background Gridlines -->
+                      @for (line of transactionChartData().gridLines; track line.y) {
+                        <line x1="60" [attr.y1]="line.y" [attr.x2]="transactionChartData().width - 20" [attr.y2]="line.y" 
+                              stroke="#f1f5f9" stroke-width="1" stroke-dasharray="3,3" />
+                        <text x="50" [attr.y]="line.y + 4" fill="#64748b" font-size="9" text-anchor="end" font-family="monospace">
+                          {{ line.label }}
+                        </text>
+                      }
+
+                      <!-- Bars Visualization -->
+                      @for (bar of transactionChartData().bars; track bar.date; let idx = $index) {
+                        <!-- Deposit Bar (Emerald) -->
+                        <rect [attr.x]="bar.x - 18" [attr.y]="bar.depositY" width="8" [attr.height]="bar.depositH" 
+                              fill="#10b981" rx="2" class="transition-all duration-300 hover:opacity-85" />
+                        
+                        <!-- Withdrawal Bar (Amber) -->
+                        <rect [attr.x]="bar.x - 8" [attr.y]="bar.withdrawY" width="8" [attr.height]="bar.withdrawH" 
+                              fill="#f59e0b" rx="2" class="transition-all duration-300 hover:opacity-85" />
+
+                        <!-- Loan Disbursement Bar (Rose) -->
+                        <rect [attr.x]="bar.x + 2" [attr.y]="bar.loanDisbY" width="8" [attr.height]="bar.loanDisbH" 
+                              fill="#f43f5e" rx="2" class="transition-all duration-300 hover:opacity-85" />
+
+                        <!-- Loan Payment Bar (Indigo) -->
+                        <rect [attr.x]="bar.x + 12" [attr.y]="bar.loanPayY" width="8" [attr.height]="bar.loanPayH" 
+                              fill="#6366f1" rx="2" class="transition-all duration-300 hover:opacity-85" />
+
+                        <!-- X Axis Label (Date) -->
+                        <text [attr.x]="bar.x" [attr.y]="transactionChartData().height - 15" class="font-sans" fill="#475569" font-size="10" text-anchor="middle" font-weight="bold">
+                          {{ bar.formattedDate }}
+                        </text>
+                        
+                        <!-- Mini ticks -->
+                        <line [attr.x1]="bar.x" [attr.y1]="transactionChartData().height - 35" [attr.x2]="bar.x" [attr.y2]="transactionChartData().height - 40" stroke="#cbd5e1" stroke-width="1" />
+                      }
+
+                      <!-- Base line -->
+                      <line x1="60" [attr.y1]="transactionChartData().height - 40" [attr.x2]="transactionChartData().width - 20" [attr.y2]="transactionChartData().height - 40" stroke="#cbd5e1" stroke-width="1.5" />
+                    </svg>
+                  </div>
+
+                  <!-- Legend -->
+                  <div class="flex flex-wrap gap-4 justify-center items-center text-[10px] font-bold text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-100 font-sans mt-1">
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-3 h-3 rounded bg-emerald-500"></span>
+                      <span>ยอดสัจจะฝากออมสะสม (Deposit)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-3 h-3 rounded bg-amber-500"></span>
+                      <span>ยอดเบิกถอนเงิน (Withdraw)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-3 h-3 rounded bg-rose-500"></span>
+                      <span>ยอดปล่อยเงินกู้ชุมชน (Disbursement)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="w-3 h-3 rounded bg-indigo-500"></span>
+                      <span>ยอดผ่อนชำระหนี้ (Loan Payment)</span>
+                    </div>
+                  </div>
+                } @else {
+                  <p class="text-xs text-slate-500 text-center py-12">ไม่พบบันทึกธุรกรรมทางการเงินย้อนหลังสำหรับกองทุนนี้ในปัจจุบัน</p>
+                }
+              </div>
+
+              <!-- Column 2: Committee Actions Breakdown -->
+              <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div class="flex flex-col">
+                    <div class="flex items-center gap-1.5 text-slate-950">
+                      <span class="material-icons text-rose-500">pie_chart</span>
+                      <h3 class="font-bold text-sm">การแยกส่วนความรับผิดชอบและการปฏิบัติงานเจ้าหน้าที่ (Segregation of Duties)</h3>
+                    </div>
+                    <span class="text-[10px] text-slate-500">สัดส่วนจำนวนครั้งการกดบันทึกหรือทำธุรกรรมที่มีความเสี่ยงสูง แยกรายคนเพื่อสืบประวัติความเสี่ยงส่วนบุคคล</span>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-4 mt-1.5">
+                  @for (user of committeeActionsData(); track user.username) {
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex items-center justify-between text-xs font-sans">
+                        <div class="flex items-center gap-2">
+                          <div class="w-7 h-7 rounded-full bg-slate-100 border border-slate-200/80 flex items-center justify-center font-bold text-slate-800 text-[10px] font-mono">
+                            {{ user.username.substring(0, 2) }}
+                          </div>
+                          <span class="font-bold text-slate-800">{{ user.username }}</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 font-mono">
+                          <span class="text-slate-600 font-bold bg-slate-50 px-1.5 py-0.5 rounded border text-[10px]">{{ user.count }} รายการ</span>
+                          <span class="text-slate-500 text-[11px] font-bold">({{ user.percentage }}%)</span>
+                        </div>
+                      </div>
+
+                      <!-- Custom CSS-based horizontal progress bar -->
+                      <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200/20">
+                        <div class="h-full rounded-full transition-all duration-500"
+                             [style.width.%]="user.percentage"
+                             [class.bg-emerald-500]="user.percentage >= 40"
+                             [class.bg-indigo-500]="user.percentage >= 20 && user.percentage < 40"
+                             [class.bg-slate-400]="user.percentage < 20">
+                        </div>
+                      </div>
+                    </div>
+                  } @empty {
+                    <p class="text-xs text-slate-500 text-center py-12">ไม่พบกิจกรรมใดๆ บันทึกในบันทึกระบบปฏิบัติการขณะนี้</p>
+                  }
+                </div>
+
+                <div class="mt-auto bg-slate-50 p-3 rounded-xl border border-slate-150 flex items-start gap-2.5 text-[11px] text-slate-600 font-sans leading-relaxed">
+                  <span class="material-icons text-amber-500 text-base mt-0.5">info</span>
+                  <p>
+                    <strong>ข้อเสนอแนะการควบคุมภายใน:</strong> หากพบว่าผู้ปฏิบัติงานรายใดรายหนึ่ง (เช่น เหรัญญิกแสนสุข) มีสัดส่วนยอดการอนุมัติและคีย์รายการเกิน 80% คณะกรรมการควรเสริมระบบสอบยันเพื่อแบ่งแยกหน้าที่ (Segregation of Duties) ป้องกันความผิดพลาดส่วนบุคคล
+                  </p>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Unified Detailed Logs Table (Interactive Search) -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm flex flex-col gap-4">
+              <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                  <span class="material-icons text-slate-800">format_list_bulleted</span>
+                  <h3 class="font-bold text-slate-900 text-sm font-sans">บันทึกประวัติเหตุการณ์ฉบับเต็มและตัวกรองค้นหา (Full Event Logs Audit Ledger)</h3>
+                </div>
+
+                <!-- Live Search Box -->
+                <div class="relative w-full md:w-72">
+                  <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <span class="material-icons text-sm">search</span>
+                  </span>
+                  <input type="text" 
+                         [value]="auditSearchQuery()"
+                         (input)="auditSearchQuery.set($any($event.target).value)"
+                         placeholder="ค้นหาตามชื่อเจ้าหน้าที่, ประเภท, เนื้อหาบันทึก..."
+                         class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition font-sans">
+                </div>
+              </div>
+
+              <div class="overflow-x-auto w-full max-h-[500px]">
+                <table class="w-full text-xs text-left">
+                  <thead class="bg-slate-50 text-slate-600 font-mono border-b border-slate-200 sticky top-0">
+                    <tr>
+                      <th class="p-3">วันเวลาลงรายการ (Thai UTC+7)</th>
+                      <th class="p-3">ผู้ปฏิบัติหน้าที่</th>
+                      <th class="p-3">รหัสประเภทงาน (Action)</th>
+                      <th class="p-3">รายละเอียดใจความความเคลื่อนไหว</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 font-sans text-slate-700">
+                    @for (log of filteredAuditLogs(); track log.id) {
+                      <tr class="hover:bg-slate-50/50 transition">
+                        <td class="p-3 whitespace-nowrap text-slate-500 font-mono">{{ log.timestamp | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+                        <td class="p-3 font-bold text-slate-800">{{ log.username }}</td>
+                        <td class="p-3">
+                          <span class="bg-slate-100 text-slate-700 font-mono font-bold px-2 py-0.5 rounded text-[10px]"
+                                [class.bg-emerald-50]="log.action === 'DEPOSIT' || log.action === 'SHARE_BUY'"
+                                [class.text-emerald-700]="log.action === 'DEPOSIT' || log.action === 'SHARE_BUY'"
+                                [class.bg-rose-50]="log.action === 'WITHDRAWAL' || log.action === 'DELETE_MEMBER'"
+                                [class.text-rose-700]="log.action === 'WITHDRAWAL' || log.action === 'DELETE_MEMBER'"
+                                [class.bg-amber-50]="log.action === 'UPDATE_SETTINGS'"
+                                [class.text-amber-700]="log.action === 'UPDATE_SETTINGS'"
+                                [class.bg-indigo-50]="log.action === 'NEW_LOAN' || log.action === 'LOAN_PAYMENT'"
+                                [class.text-indigo-700]="log.action === 'NEW_LOAN' || log.action === 'LOAN_PAYMENT'"
+                                [class.bg-blue-50]="log.action === 'THAID_VERIFICATION_SUCCESS'"
+                                [class.text-blue-700]="log.action === 'THAID_VERIFICATION_SUCCESS'">
+                            {{ log.action }}
+                          </span>
+                        </td>
+                        <td class="p-3 text-slate-600 leading-normal">{{ log.details }}</td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td colspan="4" class="p-12 text-center text-slate-400">ไม่พบรายงานประวัติที่ตรงกับคำค้นหาของท่าน</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             </div>
 
           </div>

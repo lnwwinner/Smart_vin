@@ -4,6 +4,16 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ApiService, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, FundSettings } from './services/api';
 
+export interface RiskAnomaly {
+  id: string;
+  type: 'danger' | 'warning' | 'info';
+  category: 'guarantor_loop' | 'debt_ratio' | 'off_hours' | 'unverified_large' | 'guarantor_concentration';
+  title: string;
+  description: string;
+  relevance: string;
+  affectedEntities: string[];
+}
+
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-root',
@@ -46,6 +56,21 @@ export class App {
     const qrId = this.selectedMemberIdForQr();
     if (!qrId) return null;
     return this.api.members().find(m => m.id === qrId) || null;
+  });
+
+  // Search query and filter computed for Audit Logs
+  auditSearchQuery = signal<string>('');
+  filteredAuditLogs = computed(() => {
+    const query = this.auditSearchQuery().toLowerCase().trim();
+    const logs = this.api.auditLogs();
+    if (!query) return [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return [...logs]
+      .filter(l => 
+        (l.username && l.username.toLowerCase().includes(query)) ||
+        (l.action && l.action.toLowerCase().includes(query)) ||
+        (l.details && l.details.toLowerCase().includes(query))
+      )
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   });
 
   // Special members management sub-tab & state
@@ -108,6 +133,308 @@ export class App {
   activeLoans = computed(() => {
     return this.api.loans().filter(l => l.status === 'active' || l.status === 'overdue');
   });
+
+  // Smart Audit Anomalies and Potential Mismanagement Detector Engine
+  detectedAnomalies = computed<RiskAnomaly[]>(() => {
+    const list: RiskAnomaly[] = [];
+    const members = this.api.members();
+    const loans = this.api.loans();
+    const auditLogs = this.api.auditLogs();
+    const settings = this.api.settings();
+    const sharePrice = settings?.sharePrice || 100;
+
+    // 1. Circular Guarantor Loops (วงจรค้ำประกันแฝง / วงกู้ภัยค้ำไขว้)
+    const activeOrPendingLoans = loans.filter(l => l.status === 'active' || l.status === 'overdue' || l.status === 'pending');
+    for (let i = 0; i < activeOrPendingLoans.length; i++) {
+      const loanA = activeOrPendingLoans[i];
+      for (let j = i + 1; j < activeOrPendingLoans.length; j++) {
+        const loanB = activeOrPendingLoans[j];
+        if (loanA.memberId === loanB.memberId) continue;
+
+        const A_guarantees_B = loanB.guarantorIds.includes(loanA.memberId);
+        const B_guarantees_A = loanA.guarantorIds.includes(loanB.memberId);
+
+        if (A_guarantees_B && B_guarantees_A) {
+          list.push({
+            id: `anom-loop-${loanA.id}-${loanB.id}`,
+            type: 'danger',
+            category: 'guarantor_loop',
+            title: 'ตรวจพบวงจรค้ำประกันไขว้สองฝ่าย (Reciprocal Guarantor Loop)',
+            description: `พบว่า คุณ ${loanA.memberName} และ คุณ ${loanB.memberName} ต่างฝ่ายต่างเป็นผู้ค้ำประกันเงินกู้ให้แก่กันและกัน ซึ่งหากคนใดคนหนึ่งเกิดหนี้เสียขึ้น ภาระค้ำประกันที่ค้ำวนกลับมาจะทำให้ขาดผู้รับผิดชอบที่แท้จริง`,
+            relevance: 'ขัดต่อมาตรฐานการบริหารหนี้เสียของสถาบันการเงินชุมชน เสี่ยงเกิดโดมิโน่หนี้สูญคู่ (NPL) โดยไม่มีสมาชิกคนนอกค้ำประกันจริง',
+            affectedEntities: [`สัญญาเงินกู้ที่ ${loanA.id} (${loanA.memberName})`, `สัญญาเงินกู้ที่ ${loanB.id} (${loanB.memberName})`]
+          });
+        }
+      }
+    }
+
+    // 2. High Debt-to-Equity Ratio (เงินกู้ล้นพ้นตัว เมื่อเทียบกับยอดออมสะสม)
+    members.forEach(m => {
+      const assets = m.depositBalance + (m.shareCount * sharePrice);
+      const memberLoans = loans.filter(l => l.memberId === m.id && (l.status === 'active' || l.status === 'overdue'));
+      const totalLoanBalance = memberLoans.reduce((sum, l) => sum + l.remainingBalance, 0);
+
+      if (totalLoanBalance > 30000 && (assets === 0 || (totalLoanBalance / assets) > 8)) {
+        list.push({
+          id: `anom-ratio-${m.id}`,
+          type: 'warning',
+          category: 'debt_ratio',
+          title: 'สัดส่วนสินเชื่อกู้ยืมสูงเกินสัจจะออมทรัพย์สะสม (High Loan-to-Savings)',
+          description: `สมาชิก คุณ ${m.name} มียอดหนี้คงเหลือค้างจ่ายรวม ${totalLoanBalance.toLocaleString()} บาท แต่มีสินทรัพย์เงินฝากสัจจะและมูลค่าหุ้นรวมกันเพียง ${assets.toLocaleString()} บาท ซึ่งสะท้อนอัตราหนี้ต่อหลักประกันของตนเองพุ่งสูงเกิน 8 เท่า`,
+          relevance: 'มีความเสี่ยงสูงต่อการจงใจปล่อยให้หนี้เสีย เนื่องจากลูกหนี้มีส่วนได้เสียค้ำประกันตนเองในกองทุนน้อยมาก (Low Skin in the Game)',
+          affectedEntities: [`รหัสสมาชิก: ${m.memberCode} - คุณ ${m.name}`]
+        });
+      }
+    });
+
+    // 3. Suspicious Off-Hours Administrative activity (ลงธุรกรรมเวลากลางคืน)
+    const offHoursLogs = auditLogs.filter(log => {
+      const date = new Date(log.timestamp);
+      const localHour = (date.getUTCHours() + 7) % 24; // Bangkok UTC+7
+      return localHour >= 20 || localHour < 5;
+    });
+
+    if (offHoursLogs.length > 0) {
+      list.push({
+        id: 'anom-offhours',
+        type: 'warning',
+        category: 'off_hours',
+        title: 'พบการแก้ไขทะเบียนหรือทำรายการนอกเวลากองทุนปกติ (Off-Hours Activity)',
+        description: `พบการลงประวัติการดำเนินงานหรืออนุมัติธุรกรรมทางการเงินในช่วงเวลากลางคืนระหว่าง 20:00 น. ถึง 05:00 น. รวมจำนวน ${offHoursLogs.length} รายการ ซึ่งขัดต่อธรรมชาติของสัจจะออมทรัพย์ที่มีการฝากถอนแบบเปิดเผยในที่ประชุมชุมชนเท่านั้น`,
+        relevance: 'เสี่ยงต่อการลงธุรกรรมทางการเงินที่ปกปิดพยาน สับเปลี่ยนตัวเลขย้อนหลัง หรือกระทำรายการที่ไม่มีมติคณะกรรมการรองรับ',
+        affectedEntities: offHoursLogs.slice(0, 3).map(l => `${l.username} บันทึก [${l.action}] เวลา ${new Date(l.timestamp).toLocaleTimeString('th-TH')}`)
+      });
+    }
+
+    // 4. Unverified High-Value Accounts (ยอดสูงแต่ไม่ได้เชื่อม ThaID ยืนยันสิทธิ์)
+    members.forEach(m => {
+      const assets = m.depositBalance + (m.shareCount * sharePrice);
+      const memberLoans = loans.filter(l => l.memberId === m.id && (l.status === 'active' || l.status === 'overdue'));
+      const totalLoanBalance = memberLoans.reduce((sum, l) => sum + l.remainingBalance, 0);
+
+      if (!m.verifiedByThaid && (assets >= 40000 || totalLoanBalance >= 40000)) {
+        list.push({
+          id: `anom-verify-${m.id}`,
+          type: 'info',
+          category: 'unverified_large',
+          title: 'บัญชีวงเงินสูงที่ยังไม่ลงทะเบียนยืนยันตัวตนดิจิทัล (Unverified High-Value Account)',
+          description: `สมาชิก คุณ ${m.name} ถือครองสัจจะสะสมหรือมีหนี้คงเหลือสูงเป็นอันดับต้นๆ (${(Math.max(assets, totalLoanBalance)).toLocaleString()} บาท) แต่ยังดำเนินงานผ่านเอกสารกระดาษโดยปราศจากการยืนยันสิทธิ์ตัวตนแท้จริงผ่านระบบมหาดไทย (ThaID OIDC)`,
+          relevance: 'เสี่ยงต่อการเกิดภัยบัญชีม้า บัญชีสมอ้างชื่อ (Nominee Accounts) หรือการนำสิทธิ์ผู้สูงอายุที่ล้มป่วยมาเบิกถอนหมุนเวียนส่วนตัวโดยมิชอบ',
+          affectedEntities: [`รหัสสมาชิก: ${m.memberCode} - คุณ ${m.name}`]
+        });
+      }
+    });
+
+    // 5. Concentration Risk of Guarantees (ผู้ค้ำค้ำมากเกินไปในเวลาเดียวกัน)
+    const guarantorCounts: Record<string, { name: string; count: number; loans: string[] }> = {};
+    activeOrPendingLoans.forEach(l => {
+      l.guarantorIds.forEach((gid, idx) => {
+        const gname = l.guarantorNames[idx] || 'ผู้ค้ำประกัน';
+        if (!guarantorCounts[gid]) {
+          guarantorCounts[gid] = { name: gname, count: 0, loans: [] };
+        }
+        guarantorCounts[gid].count++;
+        guarantorCounts[gid].loans.push(`สัญญาเลขที่ ${l.id} (${l.memberName})`);
+      });
+    });
+
+    Object.entries(guarantorCounts).forEach(([gid, data]) => {
+      if (data.count >= 2) { // 2 or more contracts
+        list.push({
+          id: `anom-guar-${gid}`,
+          type: 'warning',
+          category: 'guarantor_concentration',
+          title: 'การกระจุกตัวของภาระผู้ค้ำประกัน (Guarantor Concentration Risk)',
+          description: `พบว่า คุณ ${data.name} ได้เซ็นชื่อค้ำประกันสัญญาเงินกู้ของลูกหนี้ต่างรายรวมกันถึง ${data.count} สัญญา ซึ่งเกินขีดความสามารถที่จะร่วมรับผิดชดใช้แทนหากเกิดหนี้เสียขึ้นพร้อมกัน`,
+          relevance: 'เมื่อลูกหนี้คนใดคนหนึ่งเริ่มค้างชำระ หนี้เสียจะลากให้ผู้ค้ำประกันล้มละลายทันที ทำลายความน่าเชื่อถือของระบบค้ำประกันชุมชนทั้งหมด',
+          affectedEntities: data.loans
+        });
+      }
+    });
+
+    return list;
+  });
+
+  // Dynamic grouping of transactions over time for chronological visualization
+  transactionTimelineData = computed(() => {
+    const txs = this.api.transactions();
+    const groups: Record<string, { date: string; deposit: number; withdraw: number; loan_disb: number; loan_pay: number }> = {};
+    
+    txs.forEach(t => {
+      const dateStr = t.date.split('T')[0];
+      if (!groups[dateStr]) {
+        groups[dateStr] = { date: dateStr, deposit: 0, withdraw: 0, loan_disb: 0, loan_pay: 0 };
+      }
+      if (t.type === 'deposit') groups[dateStr].deposit += t.amount;
+      else if (t.type === 'withdrawal') groups[dateStr].withdraw += t.amount;
+      else if (t.type === 'loan_disbursement') groups[dateStr].loan_disb += t.amount;
+      else if (t.type === 'loan_payment') groups[dateStr].loan_pay += t.amount;
+    });
+
+    // Sort by chronological date ascending
+    const sorted = Object.values(groups).sort((a, b) => a.date.localeCompare(b.date));
+    return sorted.slice(-6); // Take last 6 days for clean charting
+  });
+
+  // Compute scale and points for visual SVG Bar and Line charts
+  transactionChartData = computed(() => {
+    const timeline = this.transactionTimelineData();
+    if (timeline.length === 0) return { bars: [], gridLines: [], maxVal: 0, width: 600, height: 220 };
+
+    // Max amount to scale vertical axis
+    const maxVal = Math.max(
+      1000,
+      ...timeline.map(d => Math.max(d.deposit, d.withdraw, d.loan_disb, d.loan_pay))
+    );
+
+    const width = 600;
+    const height = 220;
+    const paddingLeft = 60;
+    const paddingRight = 20;
+    const paddingTop = 20;
+    const paddingBottom = 40;
+
+    const chartWidth = width - paddingLeft - paddingRight;
+    const chartHeight = height - paddingTop - paddingBottom;
+
+    const stepX = timeline.length > 1 ? chartWidth / (timeline.length - 1) : chartWidth;
+
+    const bars = timeline.map((d, i) => {
+      const x = paddingLeft + (i * stepX);
+      
+      const depositH = (d.deposit / maxVal) * chartHeight;
+      const withdrawH = (d.withdraw / maxVal) * chartHeight;
+      const loanDisbH = (d.loan_disb / maxVal) * chartHeight;
+      const loanPayH = (d.loan_pay / maxVal) * chartHeight;
+
+      return {
+        date: d.date,
+        formattedDate: new Date(d.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
+        x,
+        depositY: height - paddingBottom - depositH,
+        depositH,
+        withdrawY: height - paddingBottom - withdrawH,
+        withdrawH,
+        loanDisbY: height - paddingBottom - loanDisbH,
+        loanDisbH,
+        loanPayY: height - paddingBottom - loanPayH,
+        loanPayH,
+        raw: d
+      };
+    });
+
+    // Gridlines construction
+    const gridLines = [];
+    const gridSteps = 4;
+    for (let i = 0; i <= gridSteps; i++) {
+      const val = (maxVal / gridSteps) * i;
+      const y = height - paddingBottom - ((val / maxVal) * chartHeight);
+      gridLines.push({
+        y,
+        label: Math.round(val).toLocaleString() + ' บ.'
+      });
+    }
+
+    return { bars, gridLines, maxVal, width, height };
+  });
+
+  // Committee Actions counts and percentages
+  committeeActionsData = computed(() => {
+    const logs = this.api.auditLogs();
+    const userCounts: Record<string, number> = {};
+    logs.forEach(l => {
+      const user = l.username || 'กรรมการระบบ';
+      userCounts[user] = (userCounts[user] || 0) + 1;
+    });
+    const total = logs.length || 1;
+    return Object.entries(userCounts).map(([username, count]) => ({
+      username,
+      count,
+      percentage: Math.round((count / total) * 100)
+    })).sort((a, b) => b.count - a.count);
+  });
+
+  // Sum of Cash flow - Money In versus Money Out
+  inflowOutflowSummary = computed(() => {
+    const txs = this.api.transactions();
+    let inflow = 0;
+    let outflow = 0;
+
+    txs.forEach(t => {
+      if (t.type === 'deposit' || t.type === 'share_buy' || t.type === 'loan_payment') {
+        inflow += t.amount;
+      } else if (t.type === 'withdrawal' || t.type === 'loan_disbursement' || t.type === 'welfare_payout') {
+        outflow += t.amount;
+      }
+    });
+
+    const total = inflow + outflow || 1;
+    const inflowPercent = Math.round((inflow / total) * 100);
+    const outflowPercent = Math.round((outflow / total) * 100);
+
+    return {
+      inflow,
+      outflow,
+      inflowPercent,
+      outflowPercent
+    };
+  });
+
+  // Deep AI Audit and Compliance Report Scanning
+  async runAiAuditScan() {
+    this.aiOpen.set(true);
+    this.aiLoading.set(true);
+    
+    const anomalies = this.detectedAnomalies();
+    let anomalyContextText = '';
+    
+    if (anomalies.length > 0) {
+      anomalyContextText = anomalies.map((a, i) => 
+        `${i+1}. [${a.type.toUpperCase()}] หัวข้อ: ${a.title}\n   รายละเอียด: ${a.description}\n   ผลกระทบสัจจะ: ${a.relevance}\n   รายชื่อเกี่ยวข้อง: ${a.affectedEntities.join(', ')}`
+      ).join('\n\n');
+    } else {
+      anomalyContextText = 'ยินดีด้วยค่ะ ไม่พบความเสี่ยงหรือรูปแบบความคดโกงทางการเงินอย่างมีระบบใดๆ ในระบบการบัญชีของกองทุน';
+    }
+
+    const prompt = `ดิฉันขอส่งข้อมูลความเสี่ยงและพฤติกรรมทางการเงินสุ่มเสี่ยงที่ตรวจจับได้จากระบบอัจฉริยะ (Smart Audit Detector) ของหมู่บ้านเรา ดังนี้ค่ะ:\n\n${anomalyContextText}\n\nในฐานะที่คุณเป็นทีมผู้เชี่ยวชาญด้านสัจจะออมทรัพย์ การสอบบัญชีวิสาหกิจชุมชน และระบบการจัดการสหกรณ์ของประเทศไทย ช่วยจัดทำ "รายงานวิเคราะห์ประเมินความเสี่ยงและตรวจสอบความโปร่งใสในกองทุนสัจจะ" อย่างเป็นทางการ\n\nโดยควรมีโครงสร้างดังนี้:\n1. บทสรุปผู้บริหารสำหรับตำบล (Executive Summary)\n2. รายละเอียดวิเคราะห์อันตรายความเสี่ยงที่ตรวจพบแยกตามหัวข้อ (กู้ค้ำวนลูป, ยอดเงินกู้ล้นพ้นตัว, ธุรกรรมนอกเวลางาน, บัญชีวงเงินสูงที่ยังไม่ยืนยัน ThaID)\n3. คำแนะนำวิธีแก้ไขเพื่อป้องกันความเสียหายต่อสัจจะสะสมชาวบ้านในระยะยาว\n4. ตราสัญลักษณ์ตรวจสอบผ่านแล้ว (Compliance Badge)\n\nกรุณาใช้สำนวนทางการบัญชีที่น่าเชื่อถือ ชัดเจน เข้าใจง่ายสำหรับผู้สูงอายุและกรรมการกองทุน เขียนเป็นภาษาไทยอย่างสละสลวยและทรงพลังค่ะ`;
+
+    this.aiChatMessages.update(msgs => [
+      ...msgs,
+      {
+        sender: 'user',
+        text: '🔍 **วิเคราะห์ประเมินพฤติกรรมการทุจริต ความโปร่งใส และวิเคราะห์ความเสี่ยงเชิงลึก (AI Full Audit Report)**',
+        timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+      }
+    ]);
+
+    try {
+      const response = await this.api.callAi('analyze-audit', prompt, {
+        anomaliesCount: anomalies.length,
+        anomaliesList: anomalies,
+        tenantName: this.api.selectedTenant()?.name
+      });
+      
+      this.aiChatMessages.update(msgs => [
+        ...msgs,
+        {
+          sender: 'ai',
+          text: response,
+          timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } catch (err: any) {
+      this.aiChatMessages.update(msgs => [
+        ...msgs,
+        {
+          sender: 'ai',
+          text: `❌ ล้มเหลวในการร่างรายงานตรวจสอบทางบัญชี: ${err.message}`,
+          timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } finally {
+      this.aiLoading.set(false);
+    }
+  }
 
   // Selected member for detail view inside transaction forms
   selectedMemberForTx = signal<Member | null>(null);
@@ -960,6 +1287,20 @@ export class App {
     if (this.speechAssist()) {
       this.speak("ดึงข้อมูลบัตรประชาชนดิจิทัลสำเร็จแล้วค่ะ คณะกรรมการสามารถตรวจสอบข้อมูลและกดบันทึกได้ทันที");
     }
+  }
+
+  // Expose Math for safe use in template bindings
+  Math = Math;
+
+  getThaidVerificationPercentage(): number {
+    const total = this.api.members().length;
+    if (total === 0) return 0;
+    const verified = this.api.members().filter(m => m.verifiedByThaid).length;
+    return Math.round((verified / total) * 100);
+  }
+
+  getThaidVerifiedCount(): number {
+    return this.api.members().filter(m => m.verifiedByThaid).length;
   }
 
   // Quick logout of active digital session
