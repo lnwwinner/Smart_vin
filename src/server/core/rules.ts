@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { Member, Loan, Welfare, FundSettings, WelfareRule } from '../domain/entities';
+import { Member, FundSettings } from '../domain/entities';
 
 /**
  * Smart Village Fund Platform - Core Rule Engine & Approval Workflow Core

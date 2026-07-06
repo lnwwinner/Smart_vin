@@ -17,10 +17,14 @@ app.use(express.json());
 
 const angularApp = new AngularNodeAppEngine();
 
-// AI Assistant lazy initializer
+// AI Assistant lazy initializer and circuit breaker for leaked/revoked keys
 let aiClient: GoogleGenAI | null = null;
+let aiDisabled = false;
 
 function getAiClient(): GoogleGenAI | null {
+  if (aiDisabled) {
+    return null;
+  }
   if (!aiClient) {
     const apiKey = process.env['GEMINI_API_KEY'];
     if (!apiKey) {
@@ -455,8 +459,18 @@ app.post('/api/ai', async (req, res) => {
 
     res.json({ text: response.text });
   } catch (error: any) {
-    console.error("Gemini API Error, falling back...", error);
-    res.json({ text: getFallbackResponse(action, prompt, context) + `\n\n*(หมายเหตุ: แสดงผลในโหมดประมวลผลออฟไลน์เนื่องจากเหตุผลทางเทคนิค: ${error.message})*` });
+    const errorMsg = error.message || String(error);
+    const isApiKeyIssue = errorMsg.includes('leaked') || errorMsg.includes('API key') || errorMsg.includes('PERMISSION_DENIED') || errorMsg.includes('403');
+    
+    if (isApiKeyIssue) {
+      console.warn("Gemini API Key is leaked, revoked or invalid. Activating circuit breaker and falling back to rich simulated mode gracefully.");
+      aiDisabled = true;
+      aiClient = null;
+      res.json({ text: getFallbackResponse(action, prompt, context) + `\n\n*(หมายเหตุ: ระบบวิเคราะห์ด้วยโมเดลความรู้ท้องถิ่นเนื่องจากกุญแจบริการ AI หลักหมดอายุหรือระงับชั่วคราว)*` });
+    } else {
+      console.warn("Gemini API Error, falling back to simulated mode:", errorMsg);
+      res.json({ text: getFallbackResponse(action, prompt, context) + `\n\n*(หมายเหตุ: แสดงผลในโหมดประมวลผลออฟไลน์เนื่องจากเหตุผลทางเทคนิค: ${errorMsg})*` });
+    }
   }
 });
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Smart Village Fund Platform - Domain Layer Entities
  * Defined following Clean Architecture & Domain-Driven Design (DDD) principles.
