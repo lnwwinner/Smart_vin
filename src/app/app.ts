@@ -2,7 +2,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ApiService, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, FundSettings } from './services/api';
+import { ApiService, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, FundSettings, Passbook, PassbookPrintLine } from './services/api';
 
 export interface RiskAnomaly {
   id: string;
@@ -109,6 +109,20 @@ export class App {
   docForm!: FormGroup;
   settingsForm!: FormGroup;
   tenantForm!: FormGroup;
+  passbookForm!: FormGroup;
+  passbookAdjustmentForm!: FormGroup;
+
+  // Passbook Specific States
+  selectedPassbookId = signal<string | null>(null);
+  selectedPassbook = computed(() => {
+    const id = this.selectedPassbookId();
+    if (!id) return null;
+    return this.api.passbooks().find(pb => pb.id === id) || null;
+  });
+  passbookSearchQuery = signal<string>('');
+  selectedPassbookPrintPage = signal<number>(1);
+  isPrintingAnimation = signal<boolean>(false);
+  showNewPassbookModal = signal<boolean>(false);
 
   // Search filter computed members
   filteredMembers = computed(() => {
@@ -552,6 +566,23 @@ export class App {
       subdistrict: ['', Validators.required],
       district: ['', Validators.required],
       province: ['', Validators.required]
+    });
+
+    this.passbookForm = this.fb.group({
+      id: [''],
+      memberId: ['', Validators.required],
+      bookNo: ['1', Validators.required],
+      accountNo: ['', Validators.required],
+      status: ['active', Validators.required],
+      issuedDate: [new Date().toISOString().substring(0, 10), Validators.required],
+      remarks: ['']
+    });
+
+    this.passbookAdjustmentForm = this.fb.group({
+      memberId: ['', Validators.required],
+      adjustmentAmount: [0, [Validators.required, Validators.min(1)]],
+      type: ['add', Validators.required], // add (ฝากปรับยอดเพิ่ม) or subtract (ถอนปรับยอดลด)
+      remarks: ['', Validators.required]
     });
 
     // Watch member selection in TransactionForm to autofill or validate
@@ -1339,5 +1370,211 @@ export class App {
   // Download DB directly
   downloadBackupUrl() {
     window.open('/api/backup/download', '_blank');
+  }
+
+  // Passbook Computed and helper methods
+  filteredPassbooks = computed(() => {
+    const query = this.passbookSearchQuery().toLowerCase().trim();
+    const books = this.api.passbooks();
+    if (!query) return books;
+    return books.filter(b => 
+      b.memberName.toLowerCase().includes(query) ||
+      b.memberCode.toLowerCase().includes(query) ||
+      b.accountNo.toLowerCase().includes(query)
+    );
+  });
+
+  getUnprintedTransactions(memberId: string) {
+    const memberTxs = this.api.transactions().filter(t => t.memberId === memberId);
+    const printedTxIds = new Set(this.api.passbookPrintLines()
+      .filter(line => line.memberId === memberId)
+      .map(line => line.transactionId));
+    
+    return memberTxs
+      .filter(t => !printedTxIds.has(t.id))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }
+
+  getPrintedLinesForPassbook(pbId: string) {
+    return this.api.passbookPrintLines()
+      .filter(line => line.passbookId === pbId)
+      .sort((a, b) => {
+        if (a.pageNo !== b.pageNo) return a.pageNo - b.pageNo;
+        return a.lineNo - b.lineNo;
+      });
+  }
+
+  openNewPassbookModal(member: Member) {
+    this.passbookForm.reset({
+      id: '',
+      memberId: member.id,
+      bookNo: '1',
+      accountNo: 'PB-' + member.memberCode,
+      status: 'active',
+      issuedDate: new Date().toISOString().substring(0, 10),
+      remarks: ''
+    });
+    this.showNewPassbookModal.set(true);
+  }
+
+  async onSubmitPassbook() {
+    if (this.passbookForm.invalid) return;
+    try {
+      const val = this.passbookForm.value;
+      const member = this.api.members().find(m => m.id === val.memberId);
+      if (!member) return;
+
+      const pb: Passbook = {
+        id: val.id || 'pb-' + Date.now(),
+        tenantId: this.api.selectedTenantId(),
+        memberId: val.memberId,
+        memberCode: member.memberCode,
+        memberName: member.name,
+        bookNo: val.bookNo,
+        accountNo: val.accountNo,
+        status: val.status,
+        issuedDate: val.issuedDate,
+        remarks: val.remarks
+      };
+
+      await this.api.savePassbook(pb);
+      this.showNewPassbookModal.set(false);
+      this.selectedPassbookId.set(pb.id);
+      if (this.speechAssist()) {
+        this.speak(`บันทึกสมุดเงินฝากเลขที่ ${pb.accountNo} สำหรับ คุณ ${pb.memberName} เรียบร้อยแล้วค่ะ`);
+      }
+    } catch (err: any) {
+      alert('เกิดข้อผิดพลาด: ' + err.message);
+    }
+  }
+
+  async onPerformAdjustment() {
+    if (this.passbookAdjustmentForm.invalid) return;
+    try {
+      const val = this.passbookAdjustmentForm.value;
+      const pb = this.api.passbooks().find(p => p.memberId === val.memberId);
+      if (!pb) return;
+
+      const amt = Number(val.adjustmentAmount);
+      const isAdd = val.type === 'add';
+
+      const tx: Transaction = {
+        id: 'tx-adj-' + Date.now(),
+        tenantId: this.api.selectedTenantId(),
+        memberId: val.memberId,
+        memberName: pb.memberName,
+        memberCode: pb.memberCode,
+        type: isAdd ? 'deposit' : 'withdrawal',
+        amount: amt,
+        date: new Date().toISOString(),
+        receiptNo: 'ADJ-' + Date.now().toString().substring(8),
+        notes: `ปรับปรุงยอดสะสมหน้าสมุดคู่มือเงินฝาก: ${val.remarks}`,
+        createdBy: 'กรรมการสอบยอดบัญชี'
+      };
+
+      await this.api.saveTransaction(tx);
+      this.passbookAdjustmentForm.reset({
+        memberId: val.memberId,
+        adjustmentAmount: 0,
+        type: 'add',
+        remarks: ''
+      });
+      if (this.speechAssist()) {
+        this.speak(`ปรับยอดสัจจะสะสมเรียบร้อย ยอดปรับปรุงจะรอดำเนินการสั่งพิมพ์หน้าสมุดในเครื่องพิมพ์ในลำดับต่อไปค่ะ`);
+      }
+    } catch (err: any) {
+      alert('เกิดข้อผิดพลาดในการปรับยอดสัจจะ: ' + err.message);
+    }
+  }
+
+  async printPendingTransactions(pb: Passbook) {
+    const unprinted = this.getUnprintedTransactions(pb.memberId);
+    if (unprinted.length === 0) {
+      alert('ไม่พบรายการฝากถอนใหม่ที่ยังไม่ได้พิมพ์สะสมค่ะ!');
+      return;
+    }
+
+    this.isPrintingAnimation.set(true);
+    if (this.speechAssist()) {
+      this.speak(`กำลังเชื่อมต่อเครื่องพิมพ์ระบบหัวเข็มและดำเนินการสลักพิมพ์รายการสัจจะสะสมลงสมุดจำนวน ${unprinted.length} บรรทัดค่ะ โปรดรอการประมวลผล`);
+    }
+
+    const printedLines = this.getPrintedLinesForPassbook(pb.id);
+    let currentLineNo = printedLines.length > 0 ? (printedLines[printedLines.length - 1].lineNo % 24) + 1 : 1;
+    let currentPageNo = printedLines.length > 0 ? printedLines[printedLines.length - 1].pageNo : 1;
+    let lastBalance = printedLines.length > 0 ? printedLines[printedLines.length - 1].balance : 0;
+
+    for (const tx of unprinted) {
+      if (currentLineNo > 24) {
+        currentLineNo = 1;
+        currentPageNo += 1;
+      }
+
+      const isDeposit = tx.type === 'deposit' || tx.type === 'share_buy' || tx.type === 'loan_payment';
+      const depAmt = isDeposit ? tx.amount : 0;
+      const wthAmt = !isDeposit ? tx.amount : 0;
+      
+      if (isDeposit) lastBalance += tx.amount;
+      else lastBalance -= tx.amount;
+
+      let printCode = 'DEP';
+      if (tx.type === 'withdrawal') printCode = 'WTH';
+      else if (tx.type === 'share_buy') printCode = 'SHR';
+      else if (tx.type === 'loan_payment') printCode = 'PAY';
+      else if (tx.type === 'loan_disbursement') printCode = 'DIS';
+
+      const printLine: PassbookPrintLine = {
+        id: 'pbl-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5),
+        tenantId: this.api.selectedTenantId(),
+        passbookId: pb.id,
+        memberId: pb.memberId,
+        transactionId: tx.id,
+        date: tx.date.split('T')[0],
+        code: printCode,
+        withdrawAmount: wthAmt,
+        depositAmount: depAmt,
+        balance: lastBalance,
+        lineNo: currentLineNo,
+        pageNo: currentPageNo,
+        printedAt: new Date().toISOString(),
+        printedBy: 'เครื่องพิมพ์ดอตแมทริกซ์สัจจะอัจฉริยะ'
+      };
+
+      // Sensory delay
+      await new Promise(resolve => setTimeout(resolve, 700));
+
+      await this.api.savePassbookPrintLine(printLine);
+      
+      pb.lastPrintedTxId = tx.id;
+      pb.lastPrintedDate = new Date().toISOString().split('T')[0];
+      await this.api.savePassbook(pb);
+
+      currentLineNo++;
+    }
+
+    this.isPrintingAnimation.set(false);
+    this.selectedPassbookPrintPage.set(currentPageNo);
+
+    if (this.speechAssist()) {
+      this.speak(`การพิมพ์สลักรายการสะสมสัจจะลงหน้าสมุดเรียบร้อยสมบูรณ์ค่ะ ขอรับสมุดคืนได้ค่ะ`);
+    }
+  }
+
+  async resetPassbookPrintLogs(pb: Passbook) {
+    if (confirm('คุณแน่ใจหรือไม่ที่จะรีเซ็ตล้างประวัติการพิมพ์หน้าสมุดเล่มนี้? ทุกรายการฝากถอนจะกลับไปอยู่ในสถานะรอดำเนินการพิมพ์ (Unprinted) เพื่อให้ท่านจำลองและสาธิตการพิมพ์ใหม่ได้ตั้งแต่ต้น')) {
+      try {
+        await this.api.clearPassbookPrintLines(pb.id);
+        this.selectedPassbookPrintPage.set(1);
+        if (this.speechAssist()) {
+          this.speak(`ล้างบันทึกการพิมพ์และเริ่มต้นจัดบรรทัดหน้าสมุดที่หน้า 1 เรียบร้อยค่ะ`);
+        }
+      } catch (err: any) {
+        alert('เกิดข้อผิดพลาดในการล้างประวัติ: ' + err.message);
+      }
+    }
+  }
+
+  getPassbookForMember(memberId: string): Passbook | undefined {
+    return this.api.passbooks().find(p => p.memberId === memberId);
   }
 }

@@ -142,6 +142,38 @@ export interface FundSettings {
   welfareRules: WelfareRule[];
 }
 
+export interface Passbook {
+  id: string;
+  tenantId: string;
+  memberId: string;
+  memberCode: string;
+  memberName: string;
+  bookNo: string;        // เล่มที่ เช่น 1, 2, 3
+  accountNo: string;     // เลขที่บัญชีสมุดเงินฝาก
+  status: 'active' | 'lost' | 'damaged' | 'closed';
+  issuedDate: string;
+  lastPrintedTxId?: string;
+  lastPrintedDate?: string;
+  remarks?: string;
+}
+
+export interface PassbookPrintLine {
+  id: string;
+  tenantId: string;
+  passbookId: string;
+  memberId: string;
+  transactionId: string;
+  date: string;
+  code: string;          // DEP, WTH, SHR, PAY, etc.
+  withdrawAmount: number;
+  depositAmount: number;
+  balance: number;
+  printedAt?: string;
+  printedBy?: string;
+  lineNo: number;        // บรรทัดที่พิมพ์ในสมุด (1-24)
+  pageNo: number;        // หน้าที่พิมพ์ (1, 2, 3, etc.)
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -159,6 +191,8 @@ export class ApiService {
   documents = signal<Document[]>([]);
   auditLogs = signal<AuditLog[]>([]);
   settings = signal<FundSettings | null>(null);
+  passbooks = signal<Passbook[]>([]);
+  passbookPrintLines = signal<PassbookPrintLine[]>([]);
 
   loading = signal<boolean>(false);
   error = signal<string | null>(null);
@@ -238,6 +272,8 @@ export class ApiService {
       this.documents.set(data.documents || []);
       this.auditLogs.set(data.auditLogs || []);
       this.settings.set(data.settings || null);
+      this.passbooks.set(data.passbooks || []);
+      this.passbookPrintLines.set(data.passbookPrintLines || []);
     } catch (err: any) {
       this.error.set(err.message);
     } finally {
@@ -431,6 +467,61 @@ export class ApiService {
         body: JSON.stringify(settings)
       });
       if (!res.ok) throw new Error('ล้มเหลวในการบันทึกระเบียบข้อกำหนด');
+      await this.loadTenantData(this.selectedTenantId());
+    } catch (err: any) {
+      this.error.set(err.message);
+      throw err;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  // Save Passbook
+  async savePassbook(pb: Passbook) {
+    try {
+      this.loading.set(true);
+      const res = await fetch(`/api/tenants/${this.selectedTenantId()}/passbooks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pb)
+      });
+      if (!res.ok) throw new Error('ล้มเหลวในการบันทึกสมุดเงินฝาก');
+      await this.loadTenantData(this.selectedTenantId());
+    } catch (err: any) {
+      this.error.set(err.message);
+      throw err;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  // Save Passbook Print Line
+  async savePassbookPrintLine(line: PassbookPrintLine) {
+    try {
+      this.loading.set(true);
+      const res = await fetch(`/api/tenants/${this.selectedTenantId()}/passbook-print-lines`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(line)
+      });
+      if (!res.ok) throw new Error('ล้มเหลวในการบันทึกการพิมพ์สมุดเงินฝาก');
+      await this.loadTenantData(this.selectedTenantId());
+    } catch (err: any) {
+      this.error.set(err.message);
+      throw err;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  // Clear Passbook Print Lines (Reset)
+  async clearPassbookPrintLines(passbookId: string) {
+    try {
+      this.loading.set(true);
+      const res = await fetch(`/api/tenants/${this.selectedTenantId()}/passbooks/${passbookId}/print-lines`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error('ล้มเหลวในการล้างข้อมูลการพิมพ์สมุดเงินฝาก');
       await this.loadTenantData(this.selectedTenantId());
     } catch (err: any) {
       this.error.set(err.message);

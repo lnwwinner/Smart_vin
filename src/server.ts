@@ -80,6 +80,8 @@ app.get('/api/tenants/:tenantId/data', async (req, res) => {
     const documents = await dbStore.getDocuments(tenantId);
     const auditLogs = await dbStore.getAuditLogs(tenantId);
     const settings = await dbStore.getSettings(tenantId);
+    const passbooks = await dbStore.getPassbooks(tenantId);
+    const passbookPrintLines = await dbStore.getPassbookPrintLines(tenantId);
 
     res.json({
       members,
@@ -90,7 +92,9 @@ app.get('/api/tenants/:tenantId/data', async (req, res) => {
       meetings,
       documents,
       auditLogs,
-      settings
+      settings,
+      passbooks,
+      passbookPrintLines
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -245,6 +249,61 @@ app.post('/api/tenants/:tenantId/documents', async (req, res) => {
       timestamp: new Date().toISOString()
     });
     res.json(doc);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Save or Update Passbook
+app.post('/api/tenants/:tenantId/passbooks', async (req, res) => {
+  try {
+    const pb = await dbStore.savePassbook(req.body);
+    await dbStore.saveAuditLog({
+      id: 'al-' + Date.now(),
+      tenantId: req.params.tenantId,
+      username: 'นายทะเบียนสมุด',
+      action: 'SAVE_PASSBOOK',
+      details: `บันทึกข้อมูลสมุดเงินฝาก: เลขที่บัญชี ${pb.accountNo} สมาชิก: ${pb.memberName} เล่มที่ ${pb.bookNo} สถานะ: ${pb.status}`,
+      timestamp: new Date().toISOString()
+    });
+    res.json(pb);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Save Passbook Print Line
+app.post('/api/tenants/:tenantId/passbook-print-lines', async (req, res) => {
+  try {
+    const line = await dbStore.savePassbookPrintLine(req.body);
+    await dbStore.saveAuditLog({
+      id: 'al-' + Date.now(),
+      tenantId: req.params.tenantId,
+      username: 'เจ้าหน้าที่บันทึกพิมพ์สมุด',
+      action: 'PRINT_PASSBOOK_LINE',
+      details: `บันทึกแถวการพิมพ์สมุดเงินฝาก: หน้า ${line.pageNo} บรรทัดที่ ${line.lineNo} ยอดคงเหลือ ${line.balance}`,
+      timestamp: new Date().toISOString()
+    });
+    res.json(line);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clear print lines for a specific passbook
+app.delete('/api/tenants/:tenantId/passbooks/:passbookId/print-lines', async (req, res) => {
+  try {
+    const { tenantId, passbookId } = req.params;
+    await dbStore.clearPassbookPrintLines(passbookId);
+    await dbStore.saveAuditLog({
+      id: 'al-' + Date.now(),
+      tenantId,
+      username: 'นายทะเบียนสมุด',
+      action: 'RESET_PASSBOOK',
+      details: `ล้างรายการพิมพ์และเริ่มนับหน้าพิมพ์ใหม่ของสมุด ID: ${passbookId}`,
+      timestamp: new Date().toISOString()
+    });
+    res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

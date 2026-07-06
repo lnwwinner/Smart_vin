@@ -1,9 +1,9 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 
-import { Tenant, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, AuditLog, WelfareRule, FundSettings, DbSchema } from './domain/entities.js';
+import { Tenant, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, AuditLog, WelfareRule, FundSettings, DbSchema, Passbook, PassbookPrintLine } from './domain/entities.js';
 
-export type { Tenant, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, AuditLog, WelfareRule, FundSettings, DbSchema };
+export type { Tenant, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, AuditLog, WelfareRule, FundSettings, DbSchema, Passbook, PassbookPrintLine };
 
 const dbFilePath = join(import.meta.dirname, '../../database.json');
 
@@ -102,7 +102,15 @@ const initialDb: DbSchema = {
         { type: 'medical', name: 'สวัสดิการสุขภาพดีถ้วนหน้า', amount: 2000, conditions: 'เบิกได้ตามจ่ายจริง สูงสุด 2,000 บาทต่อปี' }
       ]
     }
-  ]
+  ],
+  passbooks: [
+    { id: 'pb1', tenantId: 't1', memberId: 'm1', memberCode: 'M001', memberName: 'สมศักดิ์ รักดี', bookNo: '1', accountNo: '1001-0001', status: 'active', issuedDate: '2020-01-10' },
+    { id: 'pb2', tenantId: 't1', memberId: 'm2', memberCode: 'M002', memberName: 'ทองดี มั่งมี', bookNo: '1', accountNo: '1001-0002', status: 'active', issuedDate: '2020-01-10' },
+    { id: 'pb3', tenantId: 't1', memberId: 'm3', memberCode: 'M003', memberName: 'จันทร์เพ็ญ สว่างจิต', bookNo: '1', accountNo: '1001-0003', status: 'active', issuedDate: '2020-02-15' },
+    { id: 'pb4', tenantId: 't1', memberId: 'm4', memberCode: 'M004', memberName: 'พูนสุข ทวีคูณ', bookNo: '1', accountNo: '1001-0004', status: 'active', issuedDate: '2020-02-15' },
+    { id: 'pb5', tenantId: 't1', memberId: 'm5', memberCode: 'M005', memberName: 'บุญนำ น้อมจิต', bookNo: '1', accountNo: '1001-0005', status: 'active', issuedDate: '2020-03-01' }
+  ],
+  passbookPrintLines: []
 };
 
 export class DbStore {
@@ -112,11 +120,16 @@ export class DbStore {
     if (this.data) return this.data;
     try {
       const text = await fs.readFile(dbFilePath, 'utf-8');
-      this.data = JSON.parse(text);
+      const parsed = JSON.parse(text);
+      if (!parsed.passbooks) parsed.passbooks = [];
+      if (!parsed.passbookPrintLines) parsed.passbookPrintLines = [];
+      this.data = parsed;
       return this.data!;
     } catch {
       // File doesn't exist, save default and return
       this.data = JSON.parse(JSON.stringify(initialDb));
+      if (!this.data!.passbooks) this.data!.passbooks = [];
+      if (!this.data!.passbookPrintLines) this.data!.passbookPrintLines = [];
       await this.save();
       return this.data!;
     }
@@ -337,6 +350,50 @@ export class DbStore {
     }
     await this.save();
     return log;
+  }
+
+  // Passbook operations
+  async getPassbooks(tenantId: string): Promise<Passbook[]> {
+    const db = await this.load();
+    if (!db.passbooks) db.passbooks = [];
+    return db.passbooks.filter(p => p.tenantId === tenantId);
+  }
+
+  async savePassbook(pb: Passbook): Promise<Passbook> {
+    const db = await this.load();
+    if (!db.passbooks) db.passbooks = [];
+    const idx = db.passbooks.findIndex(p => p.id === pb.id);
+    if (idx >= 0) db.passbooks[idx] = pb;
+    else db.passbooks.push(pb);
+    await this.save();
+    return pb;
+  }
+
+  async getPassbookPrintLines(tenantId: string): Promise<PassbookPrintLine[]> {
+    const db = await this.load();
+    if (!db.passbookPrintLines) db.passbookPrintLines = [];
+    return db.passbookPrintLines.filter(l => l.tenantId === tenantId);
+  }
+
+  async savePassbookPrintLine(line: PassbookPrintLine): Promise<PassbookPrintLine> {
+    const db = await this.load();
+    if (!db.passbookPrintLines) db.passbookPrintLines = [];
+    const idx = db.passbookPrintLines.findIndex(l => l.id === line.id);
+    if (idx >= 0) db.passbookPrintLines[idx] = line;
+    else db.passbookPrintLines.push(line);
+    await this.save();
+    return line;
+  }
+
+  async clearPassbookPrintLines(passbookId: string): Promise<void> {
+    const db = await this.load();
+    db.passbookPrintLines = db.passbookPrintLines.filter(l => l.passbookId !== passbookId);
+    const pb = db.passbooks.find(p => p.id === passbookId);
+    if (pb) {
+      delete pb.lastPrintedTxId;
+      delete pb.lastPrintedDate;
+    }
+    await this.save();
   }
 
   // Backup & Restore

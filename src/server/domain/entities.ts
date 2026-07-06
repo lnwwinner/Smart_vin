@@ -175,6 +175,36 @@ export interface FundSettings {
   welfareRules: WelfareRule[];
 }
 
+export interface Passbook extends IAuditable {
+  memberId: string;
+  memberCode: string;
+  memberName: string;
+  bookNo: string;        // เล่มที่ เช่น 1, 2, 3
+  accountNo: string;     // เลขที่บัญชีสมุดเงินฝาก
+  status: 'active' | 'lost' | 'damaged' | 'closed';
+  issuedDate: string;
+  lastPrintedTxId?: string;
+  lastPrintedDate?: string;
+  remarks?: string;
+}
+
+export interface PassbookPrintLine {
+  id: string;
+  tenantId: string;
+  passbookId: string;
+  memberId: string;
+  transactionId: string;
+  date: string;
+  code: string;          // DEP, WTH, SHR, PAY, etc.
+  withdrawAmount: number;
+  depositAmount: number;
+  balance: number;
+  printedAt?: string;
+  printedBy?: string;
+  lineNo: number;        // บรรทัดที่พิมพ์ในสมุด (1-24)
+  pageNo: number;        // หน้าที่พิมพ์ (1, 2, 3, etc.)
+}
+
 export interface DbSchema {
   tenants: Tenant[];
   members: Member[];
@@ -186,4 +216,6 @@ export interface DbSchema {
   documents: Document[];
   auditLogs: AuditLog[];
   settings: FundSettings[];
+  passbooks: Passbook[];
+  passbookPrintLines: PassbookPrintLine[];
 }

@@ -163,6 +163,15 @@
           <span>ประชุมสามัญ & เอกสาร</span>
         </button>
 
+        <button (click)="activeTab.set('passbook')" 
+                [class.bg-emerald-50]="activeTab() === 'passbook'"
+                [class.text-emerald-700]="activeTab() === 'passbook'"
+                [class.font-bold]="activeTab() === 'passbook'"
+                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+          <span class="material-icons">menu_book</span>
+          <span>จัดการ/พิมพ์สมุดเงินฝาก</span>
+        </button>
+
         <button (click)="activeTab.set('settings')" 
                 [class.bg-emerald-50]="activeTab() === 'settings'"
                 [class.text-emerald-700]="activeTab() === 'settings'"
@@ -1896,6 +1905,338 @@
           </div>
         }
 
+        <!-- TAB 9: PASSBOOK MANAGEMENT & PRINT SIMULATION -->
+        @if (activeTab() === 'passbook') {
+          <div class="flex flex-col gap-4 animate-fade-in" id="passbook-tab-panel">
+            
+            <!-- Tab Header Header Banner -->
+            <div class="bg-gradient-to-r from-emerald-800 to-teal-800 text-white rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div class="flex items-center gap-3">
+                <span class="material-icons text-3xl text-emerald-300">menu_book</span>
+                <div>
+                  <h2 class="font-display font-bold text-lg leading-tight text-white">ระบบจัดการและจำลองพิมพ์สมุดคู่มือเงินฝากสัจจะ</h2>
+                  <p class="text-xs text-emerald-100 mt-1 font-sans">บันทึกยอดคู่ฝาก ปรับยอดสะสมจำลอง พิมพ์รายการฝากถอนลงสมุดรายคนให้ตรงตามสารบัญทางบัญชี</p>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <span class="bg-emerald-900/50 text-emerald-200 border border-emerald-700 font-mono text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                  Dot-Matrix Passbook Engine
+                </span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-12 gap-4">
+              
+              <!-- LEFT COLUMN: MEMBER LIST, PASSBOOK REGISTRATION, ADJUSTMENTS & PENDING QUEUE -->
+              <div class="xl:col-span-5 flex flex-col gap-4">
+                
+                <!-- Card 1: Passbook Registry Search & List -->
+                <div class="bg-white rounded-2xl border border-slate-200/85 p-4 shadow-sm flex flex-col gap-3">
+                  <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 class="font-bold text-slate-900 text-xs flex items-center gap-1">
+                      <span class="material-icons text-emerald-700 text-sm">assignment_ind</span>
+                      รายชื่อสมาชิกและสมุดคู่มือเงินฝาก
+                    </h3>
+                  </div>
+
+                  <!-- Search bar -->
+                  <div class="relative">
+                    <span class="absolute left-3 top-2 text-slate-400 material-icons text-xs">search</span>
+                    <input type="text" [ngModel]="passbookSearchQuery()" (ngModelChange)="passbookSearchQuery.set($event)"
+                           placeholder="ค้นหารายชื่อสมาชิก, เลขบัญชี หรือรหัสสัจจะ..."
+                           class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition font-sans">
+                  </div>
+
+                  <!-- Compact List -->
+                  <div class="overflow-y-auto max-h-[220px] pr-1">
+                    <div class="flex flex-col gap-1.5">
+                      @for (member of filteredMembers(); track member.id) {
+                        @let pb = getPassbookForMember(member.id);
+                        <div [class.bg-emerald-50/70]="selectedPassbook()?.memberId === member.id"
+                             [class.border-emerald-200]="selectedPassbook()?.memberId === member.id"
+                             [class.border-slate-100]="selectedPassbook()?.memberId !== member.id"
+                             class="border rounded-xl p-2.5 flex items-center justify-between gap-3 transition hover:bg-slate-50/50">
+                          
+                          <div class="flex-1 min-w-0 cursor-pointer" tabindex="0" (click)="pb ? selectedPassbookId.set(pb.id) : null" (keydown.enter)="pb ? selectedPassbookId.set(pb.id) : null">
+                            <div class="flex items-center gap-1.5">
+                              <span class="font-bold text-xs text-slate-800 leading-none">{{ member.title }}{{ member.name }}</span>
+                              <span class="text-[9px] bg-slate-100 text-slate-500 font-mono px-1 py-0.5 rounded leading-none">{{ member.memberCode }}</span>
+                            </div>
+                            
+                            <div class="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
+                              @if (pb) {
+                                <span class="font-mono text-slate-700 font-bold">บช. {{ pb.accountNo }}</span>
+                                <span class="text-[9px] text-slate-400">| เล่ม {{ pb.bookNo }}</span>
+                              } @else {
+                                <span class="text-rose-600 font-bold flex items-center gap-0.5">
+                                  <span class="material-icons text-[10px]">warning</span>ยังไม่มีสมุดสัจจะ
+                                </span>
+                              }
+                            </div>
+                          </div>
+
+                          <div>
+                            @if (pb) {
+                              <div class="flex items-center gap-1.5">
+                                <span [class.bg-emerald-100]="pb.status === 'active'"
+                                      [class.text-emerald-800]="pb.status === 'active'"
+                                      [class.bg-red-100]="pb.status === 'lost'"
+                                      [class.text-red-800]="pb.status === 'lost'"
+                                      class="text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                                  {{ pb.status === 'active' ? 'ปกติ' : pb.status === 'lost' ? 'สูญหาย' : 'ชำรุด' }}
+                                </span>
+                                <button (click)="selectedPassbookId.set(pb.id)" 
+                                        class="bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg p-1 transition cursor-pointer flex items-center justify-center">
+                                  <span class="material-icons text-xs">visibility</span>
+                                </button>
+                              </div>
+                            } @else {
+                              <button (click)="openNewPassbookModal(member)"
+                                      class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-1 px-2 rounded-lg text-[10px] transition cursor-pointer flex items-center gap-0.5 shadow-sm">
+                                <span class="material-icons text-[10px]">add</span>ออกเล่ม
+                              </button>
+                            }
+                          </div>
+
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card 2: Passbook Operations Panel (only visible if passbook selected) -->
+                @if (selectedPassbook(); as pb) {
+                  
+                  <!-- Reconciliation and Manual Adjustments -->
+                  <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col gap-3">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <h3 class="font-bold text-slate-900 text-xs flex items-center gap-1 font-sans">
+                        <span class="material-icons text-amber-600 text-sm">rule</span>
+                        ปรับยอดฝากสะสมในเล่ม (Reconciliation)
+                      </h3>
+                    </div>
+
+                    <form [formGroup]="passbookAdjustmentForm" (ngSubmit)="onPerformAdjustment()" class="flex flex-col gap-2.5 text-xs">
+                      <input type="hidden" formControlName="memberId" [ngModel]="pb.memberId">
+                      
+                      <div class="grid grid-cols-2 gap-2">
+                        <div>
+                          <span class="block text-slate-500 mb-0.5">ประเภทการปรับยอด*</span>
+                          <select formControlName="type" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:bg-white focus:outline-emerald-600">
+                            <option value="add">ปรับยอดเพิ่ม (ฝากสะสม)</option>
+                            <option value="subtract">ปรับยอดลด (ถอนสะสม)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <span class="block text-slate-500 mb-0.5">จำนวนเงินปรับปรุง (บาท)*</span>
+                          <input type="number" formControlName="adjustmentAmount" placeholder="0"
+                                 class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 font-bold focus:bg-white focus:outline-emerald-600">
+                        </div>
+                      </div>
+
+                      <div>
+                        <span class="block text-slate-500 mb-0.5">เหตุผลการปรับปรุงยอดสะสมสัจจะ*</span>
+                        <input type="text" formControlName="remarks" placeholder="เช่น บันทึกดอกเบี้ยสะสมประจำปี, ตรวจสอบยอดพบบัญชีคลาดเคลื่อน..."
+                               class="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 focus:bg-white focus:outline-emerald-600">
+                      </div>
+
+                      <button type="submit" [disabled]="passbookAdjustmentForm.invalid"
+                              class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-1.5 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1">
+                        <span class="material-icons text-sm">sync_alt</span>
+                        <span>ยืนยันทำธุรกรรมเพื่อปรับยอดเล่ม</span>
+                      </button>
+                    </form>
+                  </div>
+
+                  <!-- Card 3: Unprinted Transactions Queue -->
+                  <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col gap-3">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <h3 class="font-bold text-slate-900 text-xs flex items-center gap-1 font-sans">
+                        <span class="material-icons text-rose-600 text-sm">print_disabled</span>
+                        รายการค้างการสลักพิมพ์ในเล่ม (Unprinted Queue)
+                      </h3>
+                      <span class="text-[10px] text-slate-500 bg-slate-100 font-mono px-2 py-0.5 rounded-full font-bold">
+                        ค้างพิมพ์ {{ getUnprintedTransactions(pb.memberId).length }} รายการ
+                      </span>
+                    </div>
+
+                    <div class="overflow-y-auto max-h-[160px] pr-1">
+                      <div class="flex flex-col gap-1.5">
+                        @for (tx of getUnprintedTransactions(pb.memberId); track tx.id) {
+                          <div class="bg-slate-50 rounded-xl p-2 border border-slate-100 flex items-center justify-between text-[11px] gap-2">
+                            <div>
+                              <p class="font-bold text-slate-800">{{ tx.date.split('T')[0] }}</p>
+                              <p class="text-[10px] text-slate-500 mt-0.5">{{ tx.notes || 'ฝากสะสมหุ้นสัจจะ' }}</p>
+                            </div>
+                            <div class="text-right">
+                              @let isDep = tx.type === 'deposit' || tx.type === 'share_buy' || tx.type === 'loan_payment';
+                              <p class="font-bold font-mono" [class.text-emerald-700]="isDep" [class.text-rose-700]="!isDep">
+                                {{ isDep ? '+' : '-' }}{{ tx.amount | number:'1.0-0' }} บาท
+                              </p>
+                              <span class="text-[8px] bg-slate-200/60 text-slate-600 font-bold font-mono px-1 py-0.2 rounded inline-block mt-0.5">
+                                {{ tx.type.toUpperCase() }}
+                              </span>
+                            </div>
+                          </div>
+                        } @empty {
+                          <div class="p-6 text-center text-slate-400 text-xs">
+                            <span class="material-icons text-lg text-emerald-500 block mb-1">verified</span>
+                            สมุดอัปเดตสัจจะล่าสุดครบถ้วนแล้วค่ะ
+                          </div>
+                        }
+                      </div>
+                    </div>
+
+                    @if (getUnprintedTransactions(pb.memberId).length > 0) {
+                      <button (click)="printPendingTransactions(pb)" [disabled]="isPrintingAnimation()"
+                              class="w-full bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md disabled:opacity-40 disabled:pointer-events-none">
+                        @if (isPrintingAnimation()) {
+                          <span class="animate-spin material-icons text-sm">sync</span>
+                          <span>กำลังสลักเข็มพิมพ์ลงเล่ม...</span>
+                        } @else {
+                          <span class="material-icons text-sm">print</span>
+                          <span>สั่งสลักพิมพ์รายการลงสมุดสัจจะคู่มือ</span>
+                        }
+                      </button>
+                    }
+                  </div>
+
+                } @else {
+                  <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-8 text-center text-slate-400 text-xs">
+                    <span class="material-icons text-3xl block mb-2">menu_book</span>
+                    โปรดคลิกเลือกสมาชิกทางด้านบน เพื่อเริ่มตรวจสอบและพิมพ์ยอดลงเล่มคู่มือ
+                  </div>
+                }
+
+              </div>
+
+              <!-- RIGHT COLUMN: PHYSICAL PASSBOOK SIMULATOR CANVAS -->
+              <div class="xl:col-span-7">
+                @if (selectedPassbook(); as pb) {
+                  
+                  <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col gap-4">
+                    
+                    <!-- Passbook Canvas Top Stats -->
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+                      <div>
+                        <div class="flex items-center gap-1.5">
+                          <span class="material-icons text-emerald-700 text-base">menu_book</span>
+                          <span class="font-bold text-slate-900 text-sm font-sans">หน้าจอจำลองสมุดเงินฝาก (Sensory Passbook Screen)</span>
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-0.5 font-mono">ID บัญชี: {{ pb.id }} | ผู้ถือบัญชี: {{ pb.memberName }}</p>
+                      </div>
+
+                      <div class="flex items-center gap-1.5 self-stretch sm:self-auto justify-between">
+                        <!-- Reset logs button -->
+                        <button (click)="resetPassbookPrintLogs(pb)" class="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold px-2 py-1.5 rounded-lg text-[10px] transition cursor-pointer flex items-center gap-0.5 border border-rose-100">
+                          <span class="material-icons text-[10px]">restart_alt</span>รีเซ็ตจำลองพิมพ์
+                        </button>
+                        <!-- Native browser print labels -->
+                        <button (click)="printCurrentElement()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2.5 py-1.5 rounded-lg text-[10px] transition cursor-pointer flex items-center gap-0.5 border border-slate-200">
+                          <span class="material-icons text-[10px]">print</span>สั่งพิมพ์ลงเล่มจริง
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- THE PASSBOOK BOOKLET INTERFACE representation -->
+                    <div class="bg-amber-50/40 rounded-2xl border-2 border-amber-900/15 p-5 md:p-6 shadow-md relative overflow-hidden font-mono" id="physical-booklet-canvas" style="background-color: #fdfaf2;">
+                      <!-- Page Separation Center Stitch shadow line -->
+                      <div class="absolute inset-y-0 left-1/2 w-0.5 bg-gradient-to-r from-amber-900/5 via-amber-900/15 to-amber-900/5 hidden md:block"></div>
+                      
+                      <!-- Booklet Header -->
+                      <div class="grid grid-cols-2 gap-4 text-[10px] text-amber-900/80 font-bold border-b border-amber-900/20 pb-2 mb-3 font-sans">
+                        <div class="text-left">
+                          <p class="text-slate-700">เลขที่บัญชี: <span class="text-slate-950 font-mono text-xs underline decoration-dotted font-bold">{{ pb.accountNo }}</span></p>
+                          <p class="mt-1 text-slate-700">ชื่อสมาชิก: <span class="text-slate-950 font-bold text-xs underline decoration-dotted">{{ pb.memberName }}</span></p>
+                        </div>
+                        <div class="text-right">
+                          <p class="text-slate-700">เล่มคู่มือสัจจะที่: <span class="text-slate-950 font-mono underline decoration-dotted font-bold">{{ pb.bookNo }}</span></p>
+                          <p class="mt-1 text-slate-700">วันที่อนุมัติเล่ม: <span class="text-slate-950 font-mono underline decoration-dotted font-bold">{{ pb.issuedDate }}</span></p>
+                        </div>
+                      </div>
+
+                      <!-- Table Grid ledger -->
+                      <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse font-mono" style="font-size: 11px;">
+                          <thead>
+                            <tr class="border-b border-amber-900/20 text-amber-900/70 text-[9px] font-sans">
+                              <th class="py-1 px-1 text-center w-8">บรรทัด</th>
+                              <th class="py-1 px-1 text-center w-20">ว/ด/ป</th>
+                              <th class="py-1 px-1 text-center w-10">งาน</th>
+                              <th class="py-1 px-1 text-right w-16">ถอน (WTH)</th>
+                              <th class="py-1 px-1 text-right w-16">ฝาก (DEP)</th>
+                              <th class="py-1 px-1 text-right w-20">ยอดคงเหลือ</th>
+                              <th class="py-1 px-1 text-center w-12">เครื่องพิมพ์</th>
+                            </tr>
+                          </thead>
+                          <tbody class="divide-y divide-amber-950/5 text-amber-950">
+                            
+                            <!-- Printed Lines Loop -->
+                            @let printedLinesList = getPrintedLinesForPassbook(pb.id);
+                            @for (line of printedLinesList; track line.id) {
+                              <tr class="hover:bg-amber-900/5 transition duration-150">
+                                <td class="py-1 px-1 text-center font-bold text-amber-900/60">{{ line.lineNo }}</td>
+                                <td class="py-1 px-1 text-center font-mono">{{ line.date }}</td>
+                                <td class="py-1 px-1 text-center font-bold text-slate-800">{{ line.code }}</td>
+                                <td class="py-1 px-1 text-right font-bold text-rose-700">
+                                  {{ line.withdrawAmount > 0 ? (line.withdrawAmount | number:'1.0-0') : '-' }}
+                                </td>
+                                <td class="py-1 px-1 text-right font-bold text-emerald-700">
+                                  {{ line.depositAmount > 0 ? (line.depositAmount | number:'1.0-0') : '-' }}
+                                </td>
+                                <td class="py-1 px-1 text-right font-bold text-slate-900 font-mono">
+                                  {{ line.balance | number:'1.0-0' }}
+                                </td>
+                                <td class="py-1 px-1 text-center text-[8px] text-slate-500 font-sans leading-none">
+                                  {{ line.printedBy ? line.printedBy.replace('เครื่องพิมพ์', '').substring(0, 8) : 'AUTO' }}
+                                </td>
+                              </tr>
+                            }
+
+                            <!-- Empty Slots up to 24 slots to retain structural ledger grid feel! -->
+                            @for (emptyIdx of [].constructor(Math.max(0, 24 - printedLinesList.length)); track emptyIdx; let i = $index) {
+                              @let currentSlotNo = printedLinesList.length + i + 1;
+                              <tr class="text-amber-900/10 select-none">
+                                <td class="py-1 px-1 text-center font-bold text-amber-900/20">{{ currentSlotNo }}</td>
+                                <td class="py-1 px-1 text-center text-amber-900/5">-</td>
+                                <td class="py-1 px-1 text-center text-amber-900/5">-</td>
+                                <td class="py-1 px-1 text-right text-amber-900/5">-</td>
+                                <td class="py-1 px-1 text-right text-amber-900/5">-</td>
+                                <td class="py-1 px-1 text-right text-amber-900/5">-</td>
+                                <td class="py-1 px-1 text-center text-amber-900/5">-</td>
+                              </tr>
+                            }
+
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <!-- Booklet Footer Info -->
+                      <div class="mt-4 pt-2 border-t border-amber-900/20 flex flex-col sm:flex-row justify-between text-[9px] text-amber-900/60 leading-tight font-sans">
+                        <p>* กรุณานำสมุดมาตรวจสอบยอดสะสม ณ สหกรณ์ชุมชนทุกครั้งที่มีธุรกรรม</p>
+                        <p class="font-bold">หน้าแสดงผลพิมพ์เล่มจำลองที่ {{ selectedPassbookPrintPage() }} / 24 บรรทัดต่อหน้า</p>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                } @else {
+                  <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 text-sm flex flex-col items-center justify-center gap-2">
+                    <span class="material-icons text-5xl text-slate-300">menu_book</span>
+                    <p class="font-medium text-slate-600 font-sans">หน้าจอแสดงผลเล่มสมุดบัญชีสัจจะอัจฉริยะ</p>
+                    <p class="text-xs text-slate-400 max-w-sm leading-relaxed font-sans">
+                      เมื่อเลือกผู้ใช้งาน ระบบจะจำลองลายเส้นพิมพ์หัวเข็มแบบสากล Dot-Matrix พร้อมบรรทัดบันทึกข้อมูลอย่างโปร่งใส ตรวจสอบย้อนหลังได้จริง
+                    </p>
+                  </div>
+                }
+              </div>
+
+            </div>
+
+          </div>
+        }
+
       }
 
     </main>
@@ -2301,6 +2642,72 @@
           </div>
 
         </div>
+      </div>
+    </div>
+  }
+  <!-- POPUP DIALOG 5: REGISTER NEW PASSBOOK (สมุดเล่มใหม่) -->
+  @if (showNewPassbookModal()) {
+    <div class="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 animate-fade-in" id="register-passbook-modal">
+      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 flex flex-col gap-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <h3 class="font-bold text-slate-900 flex items-center gap-1.5 text-base font-sans">
+            <span class="material-icons text-emerald-600">add_card</span>
+            ออกสมุดคู่ฝากสัจจะสวัสดิการเล่มใหม่
+          </h3>
+          <button (click)="showNewPassbookModal.set(false)" class="text-slate-400 hover:text-slate-600">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+
+        <form [formGroup]="passbookForm" (ngSubmit)="onSubmitPassbook()" class="flex flex-col gap-3.5 text-xs">
+          
+          <!-- Hidden Inputs -->
+          <input type="hidden" formControlName="memberId">
+
+          <div>
+            <span class="block text-slate-500 mb-1 font-sans">เลขที่สมุดคู่ฝากสัจจะ (พิมพ์สลัก)*</span>
+            <input type="text" formControlName="accountNo" placeholder="เช่น PB-001"
+                   class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono font-bold focus:bg-white focus:outline-emerald-600 text-slate-800">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <span class="block text-slate-500 mb-1 font-sans">สมุดสัจจะเล่มที่ (Volume)*</span>
+              <input type="text" formControlName="bookNo" placeholder="เช่น 1, 2"
+                     class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-bold focus:bg-white focus:outline-emerald-600">
+            </div>
+            <div>
+              <span class="block text-slate-500 mb-1 font-sans">วันที่ออกสมุด*</span>
+              <input type="date" formControlName="issuedDate"
+                     class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600">
+            </div>
+          </div>
+
+          <div>
+            <span class="block text-slate-500 mb-1 font-sans">สถานะสมุด*</span>
+            <select formControlName="status" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600">
+              <option value="active font-sans">ปกติ (ใช้งานได้)</option>
+              <option value="lost font-sans">สูญหาย (บล็อกการถอนชั่วคราว)</option>
+              <option value="damaged font-sans">ชำรุด (เตรียมเปลี่ยนเล่ม)</option>
+            </select>
+          </div>
+
+          <div>
+            <span class="block text-slate-500 mb-1 font-sans">หมายเหตุเพิ่มเติม</span>
+            <input type="text" formControlName="remarks" placeholder="เช่น อนุมัติออกสมุดเล่ม 1 ทันทีเมื่อลงทะเบียนเข้ากองทุน..."
+                   class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:bg-white focus:outline-emerald-600">
+          </div>
+
+          <div class="flex gap-2 justify-end border-t border-slate-100 pt-3 mt-2">
+            <button type="button" (click)="showNewPassbookModal.set(false)" class="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl font-bold transition cursor-pointer font-sans">
+              ยกเลิก
+            </button>
+            <button type="submit" [disabled]="passbookForm.invalid"
+                    class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-5 py-2 rounded-xl transition duration-300 cursor-pointer font-sans">
+              ยืนยันการออกเล่มสมุด
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   }
