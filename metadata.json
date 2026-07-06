@@ -1,0 +1,6 @@
+{
+  "name": "Smart Village Fund Platform",
+  "description": "แพลตฟอร์มบริหารกองทุนสัจจะและสวัสดิการชุมชนอัจฉริยะแบบครบวงจร รองรับระบบสมาชิก เงินฝาก ถอนเงิน เงินกู้ สวัสดิการ บัญชี รายงาน และ AI ผู้ช่วยอัจฉริยะ",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
