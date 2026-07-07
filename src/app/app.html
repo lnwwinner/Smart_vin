@@ -172,6 +172,33 @@
           <span>จัดการ/พิมพ์สมุดเงินฝาก</span>
         </button>
 
+        <button (click)="activeTab.set('expenses')" 
+                [class.bg-emerald-50]="activeTab() === 'expenses'"
+                [class.text-emerald-700]="activeTab() === 'expenses'"
+                [class.font-bold]="activeTab() === 'expenses'"
+                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+          <span class="material-icons">receipt</span>
+          <span>จัดการค่าใช้จ่าย</span>
+        </button>
+
+        <button (click)="activeTab.set('debt-repayment')" 
+                [class.bg-emerald-50]="activeTab() === 'debt-repayment'"
+                [class.text-emerald-700]="activeTab() === 'debt-repayment'"
+                [class.font-bold]="activeTab() === 'debt-repayment'"
+                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+          <span class="material-icons">payments</span>
+          <span>บริหารการชำระหนี้</span>
+        </button>
+
+        <button (click)="activeTab.set('overdue-loans')" 
+                [class.bg-rose-50]="activeTab() === 'overdue-loans'"
+                [class.text-rose-700]="activeTab() === 'overdue-loans'"
+                [class.font-bold]="activeTab() === 'overdue-loans'"
+                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+          <span class="material-icons">warning</span>
+          <span>ตรวจสอบหนี้ค้างชำระ</span>
+        </button>
+
         <button (click)="activeTab.set('settings')" 
                 [class.bg-emerald-50]="activeTab() === 'settings'"
                 [class.text-emerald-700]="activeTab() === 'settings'"
@@ -2234,6 +2261,169 @@
 
             </div>
 
+          </div>
+        }
+
+        @if (activeTab() === 'expenses') {
+          <div class="flex flex-col gap-4 animate-fade-in" id="expenses-tab-panel">
+            <div class="bg-gradient-to-r from-emerald-800 to-teal-800 text-white rounded-2xl p-5 shadow-sm flex items-center gap-3">
+              <span class="material-icons text-3xl text-emerald-300">receipt</span>
+              <div>
+                <h2 class="font-display font-bold text-lg leading-tight">ระบบจัดการค่าใช้จ่ายกองทุน</h2>
+                <p class="text-xs text-emerald-100 mt-1">บริหารจัดการและติดตามค่าใช้จ่ายต่างๆ ของกองทุน</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Expense Category Form -->
+              <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-sm mb-3">เพิ่มประเภทค่าใช้จ่าย</h3>
+                <form [formGroup]="expenseCategoryForm" (ngSubmit)="onSubmitExpenseCategory()" class="flex flex-col gap-2">
+                  <input type="text" formControlName="name" placeholder="ชื่อประเภท (เช่น ค่าประชุม)" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                  <input type="text" formControlName="description" placeholder="รายละเอียด" class="w-full bg-slate-200 rounded-lg p-2 text-xs">
+                  <button type="submit" class="bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs hover:bg-emerald-600">บันทึกประเภท</button>
+                </form>
+              </div>
+
+              <!-- Expense Form -->
+              <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-sm mb-3">บันทึกค่าใช้จ่าย</h3>
+                <form [formGroup]="expenseForm" (ngSubmit)="onSubmitExpense()" class="flex flex-col gap-2">
+                  <select formControlName="categoryId" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                    <option value="" disabled>เลือกประเภทค่าใช้จ่าย</option>
+                    @for (cat of api.expenseCategories(); track cat.id) {
+                      <option [value]="cat.id">{{ cat.name }}</option>
+                    }
+                  </select>
+                  <input type="number" formControlName="amount" placeholder="จำนวนเงิน" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                  <input type="date" formControlName="date" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                  <input type="text" formControlName="notes" placeholder="หมายเหตุ" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                  <input type="text" formControlName="receiptNo" placeholder="เลขที่ใบเสร็จ" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                  <button type="submit" class="bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs hover:bg-emerald-600">บันทึกค่าใช้จ่าย</button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Expenses List -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+              <h3 class="font-bold text-sm mb-3">ประวัติค่าใช้จ่าย</h3>
+              <table class="w-full text-xs text-left">
+                <thead class="bg-slate-50 font-mono text-slate-600">
+                  <tr>
+                    <th class="p-2">วันที่</th>
+                    <th class="p-2">ประเภท</th>
+                    <th class="p-2 text-right">จำนวนเงิน</th>
+                    <th class="p-2">หมายเหตุ</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  @for (ex of api.expenses(); track ex.id) {
+                    <tr>
+                      <td class="p-2">{{ ex.date }}</td>
+                      <td class="p-2">{{ ex.categoryName }}</td>
+                      <td class="p-2 text-right font-mono font-bold text-rose-700">{{ ex.amount | number:'1.2-2' }}</td>
+                      <td class="p-2">{{ ex.notes }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
+        @if (activeTab() === 'debt-repayment') {
+          <div class="flex flex-col gap-4 animate-fade-in" id="debt-repayment-tab-panel">
+            <div class="bg-gradient-to-r from-teal-700 to-emerald-700 text-white rounded-2xl p-5 shadow-sm flex items-center gap-3">
+              <span class="material-icons text-3xl text-emerald-300">payments</span>
+              <div>
+                <h2 class="font-display font-bold text-lg leading-tight">บริหารการชำระหนี้</h2>
+                <p class="text-xs text-emerald-100 mt-1">รับชำระเงินต้นและดอกเบี้ยจากสมาชิก</p>
+              </div>
+            </div>
+
+            <!-- Installment Form -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+              <h3 class="font-bold text-sm mb-3">บันทึกการชำระหนี้</h3>
+              <form [formGroup]="installmentForm" (ngSubmit)="onSubmitInstallment()" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select formControlName="loanId" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                  <option value="" disabled>เลือกสัญญากู้ยืม</option>
+                  @for (loan of api.loans(); track loan.id) {
+                    @if (loan.status === 'active' || loan.status === 'overdue') {
+                        <option [value]="loan.id">{{ loan.memberName }} - ยอดค้าง: {{ loan.remainingBalance | number:'1.2-2' }}</option>
+                    }
+                  }
+                </select>
+                <input type="number" formControlName="amountPaid" placeholder="ยอดชำระรวม" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                <input type="number" formControlName="principalPaid" placeholder="ตัดเงินต้น" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                <input type="number" formControlName="interestPaid" placeholder="ตัดดอกเบี้ย" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                <input type="date" formControlName="date" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                <input type="text" formControlName="receiptNo" placeholder="เลขที่ใบเสร็จ" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs">
+                <button type="submit" class="bg-teal-700 text-white font-bold py-2 rounded-lg text-xs hover:bg-teal-600 md:col-span-2">บันทึกการรับชำระ</button>
+              </form>
+            </div>
+            
+            <!-- Installments List -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+              <h3 class="font-bold text-sm mb-3">ประวัติการชำระหนี้</h3>
+              <table class="w-full text-xs text-left">
+                <thead class="bg-slate-50 font-mono text-slate-600">
+                  <tr>
+                    <th class="p-2">วันที่</th>
+                    <th class="p-2">สมาชิก</th>
+                    <th class="p-2 text-right">ยอดชำระ</th>
+                    <th class="p-2">ใบเสร็จ</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  @for (inst of api.installments(); track inst.id) {
+                    <tr>
+                      <td class="p-2">{{ inst.date }}</td>
+                      <td class="p-2">{{ inst.memberName }}</td>
+                      <td class="p-2 text-right font-mono font-bold text-emerald-700">{{ inst.amountPaid | number:'1.2-2' }}</td>
+                      <td class="p-2">{{ inst.receiptNo }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
+        @if (activeTab() === 'overdue-loans') {
+          <div class="flex flex-col gap-4 animate-fade-in" id="overdue-loans-tab-panel">
+            <div class="bg-gradient-to-r from-rose-700 to-red-800 text-white rounded-2xl p-5 shadow-sm flex items-center gap-3">
+              <span class="material-icons text-3xl text-rose-200">warning</span>
+              <div>
+                <h2 class="font-display font-bold text-lg leading-tight">สมาชิกค้างชำระค่างวด</h2>
+                <p class="text-xs text-rose-100 mt-1">รายชื่อสมาชิกที่ค้างชำระเกินกำหนด</p>
+              </div>
+            </div>
+
+            <!-- Overdue Loans List -->
+            <div class="bg-white rounded-2xl p-4 border border-rose-100 shadow-sm">
+              <h3 class="font-bold text-sm mb-3">รายชื่อสมาชิก</h3>
+              <table class="w-full text-xs text-left">
+                <thead class="bg-slate-50 font-mono text-slate-600">
+                  <tr>
+                    <th class="p-2">สมาชิก</th>
+                    <th class="p-2 text-right">ยอดคงเหลือ</th>
+                    <th class="p-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  @for (loan of api.overdueLoans(); track loan.id) {
+                    <tr>
+                      <td class="p-2">{{ loan.memberName }}</td>
+                      <td class="p-2 text-right font-mono font-bold text-rose-700">{{ loan.remainingBalance | number:'1.2-2' }}</td>
+                      <td class="p-2 flex justify-end gap-2">
+                        <button class="bg-rose-100 text-rose-700 font-bold px-3 py-1 rounded-lg text-xs hover:bg-rose-200" (click)="api.callAi('document', 'ร่างหนังสือทวงถามหนี้สำหรับสมาชิก ' + loan.memberName)">สร้างหนังสือ</button>
+                        <button class="bg-emerald-100 text-emerald-700 font-bold px-3 py-1 rounded-lg text-xs hover:bg-emerald-200" (click)="speak('กำลังแจ้งเตือนสมาชิก ' + loan.memberName)">แจ้งเตือน</button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           </div>
         }
 

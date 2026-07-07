@@ -142,6 +142,26 @@ export interface FundSettings {
   welfareRules: WelfareRule[];
 }
 
+export interface ExpenseCategory {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface Expense {
+  id: string;
+  tenantId: string;
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  date: string;
+  notes: string;
+  receiptNo?: string;
+  createdBy: string;
+}
+
 export interface Passbook {
   id: string;
   tenantId: string;
@@ -193,6 +213,10 @@ export class ApiService {
   settings = signal<FundSettings | null>(null);
   passbooks = signal<Passbook[]>([]);
   passbookPrintLines = signal<PassbookPrintLine[]>([]);
+  expenseCategories = signal<ExpenseCategory[]>([]);
+  expenses = signal<Expense[]>([]);
+  
+  overdueLoans = computed(() => this.loans().filter(l => l.status === 'overdue'));
 
   loading = signal<boolean>(false);
   error = signal<string | null>(null);
@@ -274,6 +298,8 @@ export class ApiService {
       this.settings.set(data.settings || null);
       this.passbooks.set(data.passbooks || []);
       this.passbookPrintLines.set(data.passbookPrintLines || []);
+      this.expenseCategories.set(data.expenseCategories || []);
+      this.expenses.set(data.expenses || []);
     } catch (err: any) {
       this.error.set(err.message);
     } finally {
@@ -531,6 +557,44 @@ export class ApiService {
     }
   }
 
+  // Save Expense Category
+  async saveExpenseCategory(ec: ExpenseCategory) {
+    try {
+      this.loading.set(true);
+      const res = await fetch(`/api/tenants/${this.selectedTenantId()}/expense-categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ec)
+      });
+      if (!res.ok) throw new Error('ล้มเหลวในการบันทึกประเภทค่าใช้จ่าย');
+      await this.loadTenantData(this.selectedTenantId());
+    } catch (err: any) {
+      this.error.set(err.message);
+      throw err;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  // Save Expense
+  async saveExpense(ex: Expense) {
+    try {
+      this.loading.set(true);
+      const res = await fetch(`/api/tenants/${this.selectedTenantId()}/expenses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ex)
+      });
+      if (!res.ok) throw new Error('ล้มเหลวในการบันทึกค่าใช้จ่าย');
+      await this.loadTenantData(this.selectedTenantId());
+    } catch (err: any) {
+      this.error.set(err.message);
+      throw err;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
   // Restore Database backup
   async restoreBackup(dbJson: any) {
     try {
@@ -626,3 +690,4 @@ export class ApiService {
     return data;
   }
 }
+

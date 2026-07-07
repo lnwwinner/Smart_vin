@@ -82,6 +82,8 @@ app.get('/api/tenants/:tenantId/data', async (req, res) => {
     const settings = await dbStore.getSettings(tenantId);
     const passbooks = await dbStore.getPassbooks(tenantId);
     const passbookPrintLines = await dbStore.getPassbookPrintLines(tenantId);
+    const expenseCategories = await dbStore.getExpenseCategories(tenantId);
+    const expenses = await dbStore.getExpenses(tenantId);
 
     res.json({
       members,
@@ -94,7 +96,9 @@ app.get('/api/tenants/:tenantId/data', async (req, res) => {
       auditLogs,
       settings,
       passbooks,
-      passbookPrintLines
+      passbookPrintLines,
+      expenseCategories,
+      expenses
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -322,6 +326,26 @@ app.post('/api/tenants/:tenantId/settings', async (req, res) => {
       timestamp: new Date().toISOString()
     });
     res.json(settings);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Expense Categories
+app.post('/api/tenants/:tenantId/expense-categories', async (req, res) => {
+  try {
+    const ec = await dbStore.saveExpenseCategory(req.body);
+    res.json(ec);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Expenses
+app.post('/api/tenants/:tenantId/expenses', async (req, res) => {
+  try {
+    const ex = await dbStore.saveExpense(req.body);
+    res.json(ex);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

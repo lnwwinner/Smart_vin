@@ -1,9 +1,9 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 
-import { Tenant, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, AuditLog, WelfareRule, FundSettings, DbSchema, Passbook, PassbookPrintLine } from './domain/entities.js';
+import { Tenant, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, AuditLog, WelfareRule, FundSettings, DbSchema, Passbook, PassbookPrintLine, ExpenseCategory, Expense } from './domain/entities.js';
 
-export type { Tenant, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, AuditLog, WelfareRule, FundSettings, DbSchema, Passbook, PassbookPrintLine };
+export type { Tenant, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, AuditLog, WelfareRule, FundSettings, DbSchema, Passbook, PassbookPrintLine, ExpenseCategory, Expense };
 
 const dbFilePath = join(import.meta.dirname, '../../database.json');
 
@@ -110,7 +110,9 @@ const initialDb: DbSchema = {
     { id: 'pb4', tenantId: 't1', memberId: 'm4', memberCode: 'M004', memberName: 'พูนสุข ทวีคูณ', bookNo: '1', accountNo: '1001-0004', status: 'active', issuedDate: '2020-02-15' },
     { id: 'pb5', tenantId: 't1', memberId: 'm5', memberCode: 'M005', memberName: 'บุญนำ น้อมจิต', bookNo: '1', accountNo: '1001-0005', status: 'active', issuedDate: '2020-03-01' }
   ],
-  passbookPrintLines: []
+  passbookPrintLines: [],
+  expenseCategories: [],
+  expenses: []
 };
 
 export class DbStore {
@@ -123,6 +125,8 @@ export class DbStore {
       const parsed = JSON.parse(text);
       if (!parsed.passbooks) parsed.passbooks = [];
       if (!parsed.passbookPrintLines) parsed.passbookPrintLines = [];
+      if (!parsed.expenseCategories) parsed.expenseCategories = [];
+      if (!parsed.expenses) parsed.expenses = [];
       this.data = parsed;
       return this.data!;
     } catch {
@@ -130,6 +134,8 @@ export class DbStore {
       this.data = JSON.parse(JSON.stringify(initialDb));
       if (!this.data!.passbooks) this.data!.passbooks = [];
       if (!this.data!.passbookPrintLines) this.data!.passbookPrintLines = [];
+      if (!this.data!.expenseCategories) this.data!.expenseCategories = [];
+      if (!this.data!.expenses) this.data!.expenses = [];
       await this.save();
       return this.data!;
     }
@@ -394,6 +400,39 @@ export class DbStore {
       delete pb.lastPrintedDate;
     }
     await this.save();
+  }
+
+  // Expense Operations
+  async getExpenseCategories(tenantId: string): Promise<ExpenseCategory[]> {
+    const db = await this.load();
+    if (!db.expenseCategories) db.expenseCategories = [];
+    return db.expenseCategories.filter(ec => ec.tenantId === tenantId);
+  }
+
+  async saveExpenseCategory(ec: ExpenseCategory): Promise<ExpenseCategory> {
+    const db = await this.load();
+    if (!db.expenseCategories) db.expenseCategories = [];
+    const idx = db.expenseCategories.findIndex(e => e.id === ec.id);
+    if (idx >= 0) db.expenseCategories[idx] = ec;
+    else db.expenseCategories.push(ec);
+    await this.save();
+    return ec;
+  }
+
+  async getExpenses(tenantId: string): Promise<Expense[]> {
+    const db = await this.load();
+    if (!db.expenses) db.expenses = [];
+    return db.expenses.filter(e => e.tenantId === tenantId);
+  }
+
+  async saveExpense(ex: Expense): Promise<Expense> {
+    const db = await this.load();
+    if (!db.expenses) db.expenses = [];
+    const idx = db.expenses.findIndex(e => e.id === ex.id);
+    if (idx >= 0) db.expenses[idx] = ex;
+    else db.expenses.push(ex);
+    await this.save();
+    return ex;
   }
 
   // Backup & Restore

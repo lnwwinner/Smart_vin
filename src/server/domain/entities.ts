@@ -205,6 +205,22 @@ export interface PassbookPrintLine {
   pageNo: number;        // หน้าที่พิมพ์ (1, 2, 3, etc.)
 }
 
+export interface ExpenseCategory extends IAuditable {
+  name: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface Expense extends IAuditable {
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  date: string;
+  notes: string;
+  receiptNo?: string;
+  createdBy: string;
+}
+
 export interface DbSchema {
   tenants: Tenant[];
   members: Member[];
@@ -218,4 +234,7 @@ export interface DbSchema {
   settings: FundSettings[];
   passbooks: Passbook[];
   passbookPrintLines: PassbookPrintLine[];
+  expenseCategories: ExpenseCategory[];
+  expenses: Expense[];
 }
+

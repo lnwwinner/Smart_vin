@@ -2,7 +2,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ApiService, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, FundSettings, Passbook, PassbookPrintLine } from './services/api';
+import { ApiService, Member, Transaction, Loan, Installment, Welfare, Meeting, Document, FundSettings, Passbook, PassbookPrintLine, ExpenseCategory, Expense } from './services/api';
 
 export interface RiskAnomaly {
   id: string;
@@ -111,6 +111,9 @@ export class App {
   tenantForm!: FormGroup;
   passbookForm!: FormGroup;
   passbookAdjustmentForm!: FormGroup;
+  expenseCategoryForm!: FormGroup;
+  expenseForm!: FormGroup;
+  installmentForm!: FormGroup;
 
   // Passbook Specific States
   selectedPassbookId = signal<string | null>(null);
@@ -568,6 +571,14 @@ export class App {
       province: ['', Validators.required]
     });
 
+    this.settingsForm = this.fb.group({
+      sharePrice: [100, [Validators.required, Validators.min(1)]],
+      interestRateDeposit: [1, [Validators.required, Validators.min(0)]],
+      interestRateLoan: [6, [Validators.required, Validators.min(0)]],
+      maxLoanAmount: [100000, [Validators.required, Validators.min(1000)]],
+      minGuarantors: [1, [Validators.required, Validators.min(1)]]
+    });
+
     this.passbookForm = this.fb.group({
       id: [''],
       memberId: ['', Validators.required],
@@ -583,6 +594,28 @@ export class App {
       adjustmentAmount: [0, [Validators.required, Validators.min(1)]],
       type: ['add', Validators.required], // add (ฝากปรับยอดเพิ่ม) or subtract (ถอนปรับยอดลด)
       remarks: ['', Validators.required]
+    });
+
+    this.expenseCategoryForm = this.fb.group({
+      name: ['', Validators.required],
+      description: ['']
+    });
+
+    this.expenseForm = this.fb.group({
+      categoryId: ['', Validators.required],
+      amount: [0, [Validators.required, Validators.min(1)]],
+      date: [new Date().toISOString().substring(0, 10), Validators.required],
+      notes: ['', Validators.required],
+      receiptNo: ['']
+    });
+
+    this.installmentForm = this.fb.group({
+      loanId: ['', Validators.required],
+      amountPaid: [0, [Validators.required, Validators.min(1)]],
+      principalPaid: [0, [Validators.required, Validators.min(0)]],
+      interestPaid: [0, [Validators.required, Validators.min(0)]],
+      date: [new Date().toISOString().substring(0, 10), Validators.required],
+      receiptNo: ['', Validators.required]
     });
 
     // Watch member selection in TransactionForm to autofill or validate
@@ -1572,6 +1605,73 @@ export class App {
         alert('เกิดข้อผิดพลาดในการล้างประวัติ: ' + err.message);
       }
     }
+  }
+
+  // Save Expense Category
+  async onSubmitExpenseCategory() {
+    if (this.expenseCategoryForm.invalid) return;
+    const formVal = this.expenseCategoryForm.value;
+    const ec: ExpenseCategory = {
+      id: 'ec-' + Date.now(),
+      tenantId: this.api.selectedTenantId(),
+      name: formVal.name,
+      description: formVal.description,
+      isActive: true
+    };
+    await this.api.saveExpenseCategory(ec);
+    this.expenseCategoryForm.reset();
+    if (this.speechAssist()) this.speak("บันทึกประเภทค่าใช้จ่าย เรียบร้อยค่ะ");
+  }
+
+  // Save Expense
+  async onSubmitExpense() {
+    if (this.expenseForm.invalid) return;
+    const formVal = this.expenseForm.value;
+    const category = this.api.expenseCategories().find(c => c.id === formVal.categoryId);
+    if (!category) return;
+
+    const ex: Expense = {
+      id: 'ex-' + Date.now(),
+      tenantId: this.api.selectedTenantId(),
+      categoryId: formVal.categoryId,
+      categoryName: category.name,
+      amount: formVal.amount,
+      date: formVal.date,
+      notes: formVal.notes,
+      receiptNo: formVal.receiptNo,
+      createdBy: 'กรรมการระบบ'
+    };
+    await this.api.saveExpense(ex);
+    this.expenseForm.reset({
+      date: new Date().toISOString().substring(0, 10)
+    });
+    if (this.speechAssist()) this.speak("บันทึกค่าใช้จ่าย เรียบร้อยค่ะ");
+  }
+
+  // Save Installment
+  async onSubmitInstallment() {
+    if (this.installmentForm.invalid) return;
+    const formVal = this.installmentForm.value;
+    const loan = this.api.loans().find(l => l.id === formVal.loanId);
+    if (!loan) return;
+
+    const inst: Installment = {
+      id: 'inst-' + Date.now(),
+      loanId: formVal.loanId,
+      tenantId: this.api.selectedTenantId(),
+      memberId: loan.memberId,
+      memberName: loan.memberName,
+      amountPaid: formVal.amountPaid,
+      principalPaid: formVal.principalPaid,
+      interestPaid: formVal.interestPaid,
+      date: formVal.date,
+      receiptNo: formVal.receiptNo
+    };
+    await this.api.saveInstallment(inst);
+    this.installmentForm.reset({
+      date: new Date().toISOString().substring(0, 10)
+    });
+    if (this.speechAssist()) this.speak("บันทึกการชำระหนี้ เรียบร้อยค่ะ");
   }
 
   getPassbookForMember(memberId: string): Passbook | undefined {
