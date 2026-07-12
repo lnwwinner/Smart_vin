@@ -108,114 +108,142 @@
       </div>
 
       <!-- Nav Links -->
-      <nav class="bg-white rounded-xl shadow-sm border border-slate-200/80 p-2 flex flex-row md:flex-col overflow-x-auto md:overflow-visible gap-1" id="nav-tabs">
-        <button (click)="activeTab.set('dashboard')" 
-                [class.bg-emerald-50]="activeTab() === 'dashboard'"
-                [class.text-emerald-700]="activeTab() === 'dashboard'"
-                [class.font-bold]="activeTab() === 'dashboard'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">dashboard</span>
-          <span>สรุปภาพรวมแดชบอร์ด</span>
-        </button>
+      <nav class="bg-white rounded-xl shadow-sm border border-slate-200/80 p-2 flex flex-row md:flex-col overflow-x-auto md:overflow-visible gap-2" id="nav-tabs">
         
-        <button (click)="activeTab.set('members')" 
-                [class.bg-emerald-50]="activeTab() === 'members'"
-                [class.text-emerald-700]="activeTab() === 'members'"
-                [class.font-bold]="activeTab() === 'members'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">people</span>
-          <span>ทะเบียนข้อมูลสมาชิก</span>
-        </button>
+        <!-- แดชบอร์ด -->
+        <div class="flex flex-col gap-1 shrink-0">
+          <button (click)="activeTab.set('dashboard')" 
+                  [class.bg-emerald-50]="activeTab() === 'dashboard'"
+                  [class.text-emerald-700]="activeTab() === 'dashboard'"
+                  [class.font-bold]="activeTab() === 'dashboard'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">dashboard</span>
+            <span>สรุปภาพรวมแดชบอร์ด</span>
+          </button>
+        </div>
 
-        <button (click)="activeTab.set('savings')" 
-                [class.bg-emerald-50]="activeTab() === 'savings'"
-                [class.text-emerald-700]="activeTab() === 'savings'"
-                [class.font-bold]="activeTab() === 'savings'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">savings</span>
-          <span>ฝากถอน / สัจจะหุ้น</span>
-        </button>
+        <div class="hidden md:block h-px bg-slate-100 my-1"></div>
 
-        <button (click)="activeTab.set('loans')" 
-                [class.bg-emerald-50]="activeTab() === 'loans'"
-                [class.text-emerald-700]="activeTab() === 'loans'"
-                [class.font-bold]="activeTab() === 'loans'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">handshake</span>
-          <span>กู้ยืมและผ่อนชำระหนี้</span>
-        </button>
+        <!-- หมวดหมู่: การจัดการสมาชิก -->
+        <div class="flex flex-col gap-1 shrink-0">
+          <div class="hidden md:block px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">การจัดการสมาชิก</div>
+          <button (click)="activeTab.set('members')" 
+                  [class.bg-emerald-50]="activeTab() === 'members'"
+                  [class.text-emerald-700]="activeTab() === 'members'"
+                  [class.font-bold]="activeTab() === 'members'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">people</span>
+            <span>ทะเบียนข้อมูลสมาชิก</span>
+          </button>
+          
+          <button (click)="activeTab.set('passbook')" 
+                  [class.bg-emerald-50]="activeTab() === 'passbook'"
+                  [class.text-emerald-700]="activeTab() === 'passbook'"
+                  [class.font-bold]="activeTab() === 'passbook'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">menu_book</span>
+            <span>จัดการ/พิมพ์สมุดเงินฝาก</span>
+          </button>
+        </div>
 
-        <button (click)="activeTab.set('welfare')" 
-                [class.bg-emerald-50]="activeTab() === 'welfare'"
-                [class.text-emerald-700]="activeTab() === 'welfare'"
-                [class.font-bold]="activeTab() === 'welfare'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">medical_services</span>
-          <span>สวัสดิการสัจจะชุมชน</span>
-        </button>
+        <div class="hidden md:block h-px bg-slate-100 my-1"></div>
 
-        <button (click)="activeTab.set('meetings')" 
-                [class.bg-emerald-50]="activeTab() === 'meetings'"
-                [class.text-emerald-700]="activeTab() === 'meetings'"
-                [class.font-bold]="activeTab() === 'meetings'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">event_note</span>
-          <span>ประชุมสามัญ & เอกสาร</span>
-        </button>
+        <!-- หมวดหมู่: ธุรกรรมและบัญชี -->
+        <div class="flex flex-col gap-1 shrink-0">
+          <div class="hidden md:block px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">ธุรกรรมและบัญชี</div>
+          <button (click)="activeTab.set('savings')" 
+                  [class.bg-emerald-50]="activeTab() === 'savings'"
+                  [class.text-emerald-700]="activeTab() === 'savings'"
+                  [class.font-bold]="activeTab() === 'savings'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">savings</span>
+            <span>ฝากถอน / สัจจะหุ้น</span>
+          </button>
 
-        <button (click)="activeTab.set('passbook')" 
-                [class.bg-emerald-50]="activeTab() === 'passbook'"
-                [class.text-emerald-700]="activeTab() === 'passbook'"
-                [class.font-bold]="activeTab() === 'passbook'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">menu_book</span>
-          <span>จัดการ/พิมพ์สมุดเงินฝาก</span>
-        </button>
+          <button (click)="activeTab.set('loans')" 
+                  [class.bg-emerald-50]="activeTab() === 'loans'"
+                  [class.text-emerald-700]="activeTab() === 'loans'"
+                  [class.font-bold]="activeTab() === 'loans'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">handshake</span>
+            <span>กู้ยืมและผ่อนชำระหนี้</span>
+          </button>
+          
+          <button (click)="activeTab.set('debt-repayment')" 
+                  [class.bg-emerald-50]="activeTab() === 'debt-repayment'"
+                  [class.text-emerald-700]="activeTab() === 'debt-repayment'"
+                  [class.font-bold]="activeTab() === 'debt-repayment'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">payments</span>
+            <span>บริหารการชำระหนี้</span>
+          </button>
 
-        <button (click)="activeTab.set('expenses')" 
-                [class.bg-emerald-50]="activeTab() === 'expenses'"
-                [class.text-emerald-700]="activeTab() === 'expenses'"
-                [class.font-bold]="activeTab() === 'expenses'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">receipt</span>
-          <span>จัดการค่าใช้จ่าย</span>
-        </button>
+          <button (click)="activeTab.set('overdue-loans')" 
+                  [class.bg-rose-50]="activeTab() === 'overdue-loans'"
+                  [class.text-rose-700]="activeTab() === 'overdue-loans'"
+                  [class.font-bold]="activeTab() === 'overdue-loans'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">warning</span>
+            <span>ตรวจสอบหนี้ค้างชำระ</span>
+          </button>
 
-        <button (click)="activeTab.set('debt-repayment')" 
-                [class.bg-emerald-50]="activeTab() === 'debt-repayment'"
-                [class.text-emerald-700]="activeTab() === 'debt-repayment'"
-                [class.font-bold]="activeTab() === 'debt-repayment'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">payments</span>
-          <span>บริหารการชำระหนี้</span>
-        </button>
+          <button (click)="activeTab.set('expenses')" 
+                  [class.bg-emerald-50]="activeTab() === 'expenses'"
+                  [class.text-emerald-700]="activeTab() === 'expenses'"
+                  [class.font-bold]="activeTab() === 'expenses'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">receipt</span>
+            <span>จัดการค่าใช้จ่าย</span>
+          </button>
+        </div>
 
-        <button (click)="activeTab.set('overdue-loans')" 
-                [class.bg-rose-50]="activeTab() === 'overdue-loans'"
-                [class.text-rose-700]="activeTab() === 'overdue-loans'"
-                [class.font-bold]="activeTab() === 'overdue-loans'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">warning</span>
-          <span>ตรวจสอบหนี้ค้างชำระ</span>
-        </button>
+        <div class="hidden md:block h-px bg-slate-100 my-1"></div>
 
-        <button (click)="activeTab.set('settings')" 
-                [class.bg-emerald-50]="activeTab() === 'settings'"
-                [class.text-emerald-700]="activeTab() === 'settings'"
-                [class.font-bold]="activeTab() === 'settings'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons">settings</span>
-          <span>ตั้งกฎ / กู้คืน / ประวัติ</span>
-        </button>
+        <!-- หมวดหมู่: สวัสดิการและกิจกรรม -->
+        <div class="flex flex-col gap-1 shrink-0">
+          <div class="hidden md:block px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">สวัสดิการและกิจกรรม</div>
+          <button (click)="activeTab.set('welfare')" 
+                  [class.bg-emerald-50]="activeTab() === 'welfare'"
+                  [class.text-emerald-700]="activeTab() === 'welfare'"
+                  [class.font-bold]="activeTab() === 'welfare'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">medical_services</span>
+            <span>สวัสดิการสัจจะชุมชน</span>
+          </button>
 
-        <button (click)="activeTab.set('audit_logs')" 
-                [class.bg-emerald-50]="activeTab() === 'audit_logs'"
-                [class.text-emerald-700]="activeTab() === 'audit_logs'"
-                [class.font-bold]="activeTab() === 'audit_logs'"
-                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
-          <span class="material-icons text-rose-500">policy</span>
-          <span class="font-semibold text-rose-700">ประเมินความเสี่ยง & ตรวจสอบ</span>
-        </button>
+          <button (click)="activeTab.set('meetings')" 
+                  [class.bg-emerald-50]="activeTab() === 'meetings'"
+                  [class.text-emerald-700]="activeTab() === 'meetings'"
+                  [class.font-bold]="activeTab() === 'meetings'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">event_note</span>
+            <span>ประชุมสามัญ & เอกสาร</span>
+          </button>
+        </div>
+
+        <div class="hidden md:block h-px bg-slate-100 my-1"></div>
+
+        <!-- หมวดหมู่: การตั้งค่าและการตรวจสอบ -->
+        <div class="flex flex-col gap-1 shrink-0">
+          <div class="hidden md:block px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">การตั้งค่าและตรวจสอบ</div>
+          <button (click)="activeTab.set('settings')" 
+                  [class.bg-emerald-50]="activeTab() === 'settings'"
+                  [class.text-emerald-700]="activeTab() === 'settings'"
+                  [class.font-bold]="activeTab() === 'settings'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons">settings</span>
+            <span>ตั้งกฎ / กู้คืน / ประวัติ</span>
+          </button>
+
+          <button (click)="activeTab.set('audit_logs')" 
+                  [class.bg-emerald-50]="activeTab() === 'audit_logs'"
+                  [class.text-emerald-700]="activeTab() === 'audit_logs'"
+                  [class.font-bold]="activeTab() === 'audit_logs'"
+                  class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition cursor-pointer w-full text-left whitespace-nowrap">
+            <span class="material-icons text-rose-500">policy</span>
+            <span class="font-semibold text-rose-700">ประเมินความเสี่ยง & ตรวจสอบ</span>
+          </button>
+        </div>
       </nav>
 
       <!-- ThaID Active Session / Login Card -->
